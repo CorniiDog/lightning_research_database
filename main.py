@@ -49,11 +49,10 @@ filters = [
     ("num_stations", ">=", 6),
     ("alt", "<=", 20000), # 20 km = 20000m
     ("alt", ">", 0), # Above ground
-    ("power_db",  ">", -4),
-    ("power_db",  "<", 50),
+    ("power_db",  ">", -4), # dBW
+    ("power_db",  "<", 50), # dBW
 
 ]
-
 
 events = database_parser.query_events_as_dataframe(filters)
 print(events)
@@ -63,7 +62,7 @@ params = {
   "max_lightning_speed": 299792.458, # m/s
   "min_lightning_speed": 0, # m/s
   "min_lightning_points": 300, # The minimum number of points to pass the minimum amount
-  "max_lightning_time_threshold": 1 # seconds between points
+  "max_lightning_time_threshold": 0.2 # seconds between points
 }
 
 lightning_bucketer.USE_CACHE = True # Generate cache of result to save time for future requests

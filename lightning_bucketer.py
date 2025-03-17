@@ -104,7 +104,7 @@ def _bucket_dataframe_lightnings(df:pd.DataFrame, max_time_threshold, max_dist_b
           lightning_strikes.append(final_subgroup)
 
    
-    print("Passed groups", len(lightning_strikes))
+    print("Passed groups:", len(lightning_strikes))
 
     return lightning_strikes
 
