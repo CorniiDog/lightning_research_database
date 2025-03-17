@@ -8,7 +8,7 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 
-def bucket_dataframe_lightnings(df:pd.DataFrame, max_time_threshold, max_dist_between_pts, max_speed, min_speed=0, min_pts=0) -> list[list[int]]:
+def _bucket_dataframe_lightnings(df:pd.DataFrame, max_time_threshold, max_dist_between_pts, max_speed, min_speed=0, min_pts=0) -> list[list[int]]:
     # Returns a list of all indexes that represent a lightning strike
     # A dataframe has the following headers: ['id', 'time_unix', 'lat', 'lon', 'alt', 'reduced_chi2', 'num_stations', 'power_db', 'power', 'mask', 'stations', 'x', 'y', 'z']
     # It contains roughly 2 million rows, so use cupy when necessary
@@ -106,6 +106,24 @@ def bucket_dataframe_lightnings(df:pd.DataFrame, max_time_threshold, max_dist_be
     return lightning_strikes
 
         
-        
+def bucket_dataframe_lightnings(df: pd.DataFrame, **params):
+    """
+    Buckets lightning strikes in the dataframe using provided parameters.
+    
+    Expected parameters in 'params':
+      - max_lightning_dist: Maximum allowed distance between points (meters)
+      - max_lightning_speed: Maximum allowed speed (m/s)
+      - min_lightning_speed: Minimum allowed speed (m/s)
+      - min_lightning_points: Minimum number of points to qualify as a lightning strike
+      - max_lightning_time_threshold: Maximum allowed time threshold between consecutive points (seconds)
+    """
+    return _bucket_dataframe_lightnings(
+        df,
+        max_time_threshold=params.get("max_lightning_time_threshold", 1),
+        max_dist_between_pts=params.get("max_lightning_dist", 50000),
+        max_speed=params.get("max_lightning_speed", 299792.458),
+        min_speed=params.get("min_lightning_speed", 0),
+        min_pts=params.get("min_lightning_points", 300)
+    )
 
 

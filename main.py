@@ -58,11 +58,14 @@ filters = [
 events = database_parser.query_events_as_dataframe(filters)
 print(events)
 
-max_lightning_dist = 50000 # meters
-max_lightning_speed = 299792.458 # m/s
-min_lightning_speed = 0 # m/s
-min_lightning_points = 300 
-max_lightning_time_threshold = 1 # seconds between points
-lightning_bucketer.bucket_dataframe_lightnings(events, max_time_threshold=max_lightning_time_threshold, max_dist_between_pts=max_lightning_dist, max_speed=max_lightning_speed, min_speed=min_lightning_speed, min_pts=min_lightning_points)
+params = {
+  "max_lightning_dist": 50000, # meters
+  "max_lightning_speed": 299792.458, # m/s
+  "min_lightning_speed": 0, # m/s
+  "min_lightning_points": 300, 
+  "max_lightning_time_threshold": 1 # seconds between points
+}
+
+bucketed_strikes_indeces = lightning_bucketer.bucket_dataframe_lightnings(events, params)
 
 
