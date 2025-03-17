@@ -1,5 +1,6 @@
 import os
 import database_parser
+import lightning_bucketer
 import logger
 import datetime
 
@@ -44,10 +45,24 @@ end_time = datetime.datetime(2022, 9, 2, 19, 3, tzinfo=datetime.timezone.utc).ti
 filters = [
     ("time_unix", ">=", start_time),
     ("time_unix", "<=", end_time),
-    ("reduced_chi2", "<", 1.0),
-    ("num_stations", ">=", 6)
+    ("reduced_chi2", "<", 2.0),
+    ("num_stations", ">=", 6),
+    ("alt", "<=", 20000), # 20 km = 20000m
+    ("alt", ">", 0), # Above ground
+    ("power_db",  ">", -4),
+    ("power_db",  "<", 50),
+
 ]
+
 
 events = database_parser.query_events_as_dataframe(filters)
 print(events)
+
+max_lightning_dist = 50000 # meters
+max_lightning_speed = 299792.458 # m/s
+min_lightning_speed = 0 # m/s
+min_lightning_points = 300 
+max_lightning_time_threshold = 1 # seconds between points
+lightning_bucketer.bucket_dataframe_lightnings(events, max_time_threshold=max_lightning_time_threshold, max_dist_between_pts=max_lightning_dist, max_speed=max_lightning_speed, min_speed=min_lightning_speed, min_pts=min_lightning_points)
+
 
