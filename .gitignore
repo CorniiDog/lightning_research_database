@@ -2,3 +2,4 @@
 __pycache__/
 lylout_db.db
 lylout_files/
+file_log.json
