@@ -67,6 +67,9 @@ def _create_database_if_not_exist(DB_PATH: str = "lylout_db.db"):
             z FLOAT
         )
     """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_time_unix ON events(time_unix)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_num_stations ON events(num_stations)")
     conn.commit()
     return conn
 
