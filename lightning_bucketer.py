@@ -49,57 +49,56 @@ def bucket_dataframe_lightnings(df:pd.DataFrame, max_time_threshold, max_dist_be
         z_vals = group_df['z'].values
         unix_vals = group_df['time_unix'].values
 
-        sub_groups: list[list[int]] = []
+        # Example modification for caching subgroup GPU arrays
+        sub_groups = []  # List to hold dictionaries for each subgroup
 
         for j in range(len(x_vals)):
-            if len(sub_groups) == 0:
-                sub_groups.append([j])
-                continue
-            
-            x = x_vals[j]
-            y = y_vals[j]
-            z = z_vals[j]
-            unix = unix_vals[j]
-            
+            # Create an event record
+            event_x = x_vals[j]
+            event_y = y_vals[j]
+            event_z = z_vals[j]
+            event_unix = unix_vals[j]
+
             found = False
-            for sub_group in sub_groups:
-                # Pre-convert subgroup data once per subgroup.
-                indices_sub = np.array(sub_group)
-                s_x = cp.asarray(x_vals[indices_sub])
-                s_y = cp.asarray(y_vals[indices_sub])
-                s_z = cp.asarray(z_vals[indices_sub])
-                s_unix = cp.asarray(unix_vals[indices_sub])
+            if sub_groups:
+              for sg in sub_groups:
+                  # Compute distances using already cached GPU arrays
+                  distances = cp.sqrt((event_x - sg['x'])**2 +
+                                      (event_y - sg['y'])**2 +
+                                      (event_z - sg['z'])**2)
+                  if cp.any(distances <= max_dist_between_pts):
+                      # Check speeds only for points within the distance threshold
+                      dt = cp.abs(event_unix - sg['unix'])
+                      dt = cp.where(dt == 0, 1e-6, dt)
+                      speeds = distances / dt
+                      if cp.any((speeds >= min_speed) & (speeds <= max_speed)):
+                          sg['indices'].append(j)
+                          # Update subgroup GPU arrays by concatenating the new event
+                          sg['x'] = cp.concatenate([sg['x'], cp.array([event_x])])
+                          sg['y'] = cp.concatenate([sg['y'], cp.array([event_y])])
+                          sg['z'] = cp.concatenate([sg['z'], cp.array([event_z])])
+                          sg['unix'] = cp.concatenate([sg['unix'], cp.array([event_unix])])
+                          found = True
+                          break
 
-                # Compute distances vectorized.
-                event_x = cp.array(x)
-                event_y = cp.array(y)
-                event_z = cp.array(z)
-                distances = cp.sqrt((event_x - s_x)**2 + (event_y - s_y)**2 + (event_z - s_z)**2)
-                if cp.any(distances <= max_dist_between_pts):
-                    # Compute speeds for matching events.
-                    event_unix = cp.array(unix)
-                    dt = cp.abs(event_unix - s_unix)
-                    dt = cp.where(dt == 0, 1e-6, dt)
-                    speeds = distances / dt
-                    if cp.any((speeds >= min_speed) & (speeds <= max_speed)):
-                        sub_group.append(j)
-                        found = True
-                        break
+            if not found:
+                sub_groups.append({
+                    'indices': [j],
+                    'x': cp.array([event_x]),
+                    'y': cp.array([event_y]),
+                    'z': cp.array([event_z]),
+                    'unix': cp.array([event_unix])
+                })
 
-            
-            if found:
-                continue
-            else:
-                sub_groups.append([j])
         
         for sub_group in sub_groups:
-            if len(sub_group) < min_pts:
-                continue
-            
-            final_subgroup = []
-            for indexture in sub_group:
-                final_subgroup.append(group_indices[indexture])
-            lightning_strikes.append(final_subgroup)
+          if len(sub_group['indices']) < min_pts:
+              continue
+          
+          final_subgroup = []
+          for idx in sub_group['indices']:
+              final_subgroup.append(group_indices[idx])
+          lightning_strikes.append(final_subgroup)
 
    
     print("Passed groups", len(lightning_strikes))
