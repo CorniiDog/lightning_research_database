@@ -62,7 +62,7 @@ params = {
   "max_lightning_dist": 50000, # meters
   "max_lightning_speed": 299792.458, # m/s
   "min_lightning_speed": 0, # m/s
-  "min_lightning_points": 300, 
+  "min_lightning_points": 300, # The minimum number of points to pass the minimum amount
   "max_lightning_time_threshold": 1 # seconds between points
 }
 
