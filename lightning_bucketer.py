@@ -7,6 +7,9 @@
 import cupy as cp
 import numpy as np
 import pandas as pd
+import pickle as pkl
+import os
+import hashlib
 
 def _bucket_dataframe_lightnings(df:pd.DataFrame, max_time_threshold, max_dist_between_pts, max_speed, min_speed=0, min_pts=0) -> list[list[int]]:
     # Returns a list of all indexes that represent a lightning strike
@@ -105,8 +108,54 @@ def _bucket_dataframe_lightnings(df:pd.DataFrame, max_time_threshold, max_dist_b
 
     return lightning_strikes
 
+
+result_cache_file = "result_cache.pkl"
+
+def compute_cache_key(df: pd.DataFrame, params: dict) -> str:
+    # Create a string key based on dataframe shape, time boundaries, and parameters.
+    key_str = f"{df.shape}_{df['time_unix'].min()}_{df['time_unix'].max()}_{sorted(params.items())}"
+    return hashlib.md5(key_str.encode('utf-8')).hexdigest()
+
+def delete_result_cache():
+    os.remove(result_cache_file)
+
+def get_result_cache(df, params) -> list[list[int]] | None:
+    """
+    Retrieves cached result if available.
+    """
+    key = compute_cache_key(df, params)
+    if os.path.exists(result_cache_file):
+        try:
+            with open(result_cache_file, "rb") as f:
+                cache = pkl.load(f)
+            if key in cache:
+                print("Cache hit.")
+                return cache[key]
+        except Exception as e:
+            print(f"Cache load error: {e}")
+    return None
+
+def save_result_cache(df, params, result):
+    """
+    Saves the result in the cache with a computed key.
+    """
+    key = compute_cache_key(df, params)
+    cache = {}
+    if os.path.exists(result_cache_file):
+        try:
+            with open(result_cache_file, "rb") as f:
+                cache = pkl.load(f)
+        except Exception as e:
+            print(f"Cache load error: {e}")
+            cache = {}
+    cache[key] = result
+    with open(result_cache_file, "wb") as f:
+        pkl.dump(cache, f)
         
-def bucket_dataframe_lightnings(df: pd.DataFrame, **params):
+
+USE_CACHE = True
+
+def bucket_dataframe_lightnings(df: pd.DataFrame, **params) -> list[list[int]]:
     """
     Buckets lightning strikes in the dataframe using provided parameters.
     
@@ -117,7 +166,14 @@ def bucket_dataframe_lightnings(df: pd.DataFrame, **params):
       - min_lightning_points: Minimum number of points to qualify as a lightning strike
       - max_lightning_time_threshold: Maximum allowed time threshold between consecutive points (seconds)
     """
-    return _bucket_dataframe_lightnings(
+
+    if USE_CACHE:
+      result = get_result_cache(df, params)
+      if result:
+          print("Using cached result from earlier")
+          return result
+
+    result = _bucket_dataframe_lightnings(
         df,
         max_time_threshold=params.get("max_lightning_time_threshold", 1),
         max_dist_between_pts=params.get("max_lightning_dist", 50000),
@@ -125,5 +181,9 @@ def bucket_dataframe_lightnings(df: pd.DataFrame, **params):
         min_speed=params.get("min_lightning_speed", 0),
         min_pts=params.get("min_lightning_points", 300)
     )
+
+    save_result_cache(df, params, result)
+
+    return result
 
 

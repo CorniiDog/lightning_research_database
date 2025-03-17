@@ -66,6 +66,7 @@ params = {
   "max_lightning_time_threshold": 1 # seconds between points
 }
 
-bucketed_strikes_indeces = lightning_bucketer.bucket_dataframe_lightnings(events, params)
+lightning_bucketer.USE_CACHE = True # Generate cache of result to save time for future requests
+bucketed_strikes_indeces = lightning_bucketer.bucket_dataframe_lightnings(events, params=params)
 
 
