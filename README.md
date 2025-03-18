@@ -1,5 +1,7 @@
 ## Connor's Lightning Parser Program
 
+![avg_power_map](strike_avg_power_map.png)
+
 ### Note that the library uses CUDA
 
 >1. Install your designated CUDA: https://developer.nvidia.com/cuda-downloads
