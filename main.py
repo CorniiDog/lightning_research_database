@@ -9,7 +9,7 @@ import shutil
 lightning_data_folder = "lylout_files"
 data_extension = ".dat"
 
-CPU_PCT = 0.7 # Percentage of CPU's to use for multiprocessing when necessary
+CPU_PCT = 0.7  # Percentage of CPU's to use for multiprocessing when necessary
 
 os.makedirs(lightning_data_folder, exist_ok=True)  # Ensure that it exists
 
@@ -102,18 +102,21 @@ else:
 
     print("Plotting all strikes into a readable heatmap.")
     strike_dir = "strikes"
-    num_cores = int(max(CPU_PCT*os.cpu_count(), 1)) # calculate the number of cores to use
+    num_cores = int(
+        max(CPU_PCT * os.cpu_count(), 1)
+    )  # calculate the number of cores to use
 
     # Remove the strikes directory if it exists
     if os.path.exists(strike_dir):
         shutil.rmtree(strike_dir)
-    
+
     os.makedirs(strike_dir, exist_ok=True)
-    lightning_plotters.plot_all_strikes(bucketed_strikes_indeces_sorted, events, strike_dir,num_cores)
+    lightning_plotters.plot_all_strikes(
+        bucketed_strikes_indeces_sorted, events, strike_dir, num_cores
+    )
 
     print("Exporting largest instance on file")
     # Just plot the largest instance
     lightning_plotters.plot_avg_power_map(bucketed_strikes_indeces_sorted[0], events)
-
 
     print("Finished generating plots")

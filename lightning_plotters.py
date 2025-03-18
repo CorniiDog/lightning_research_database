@@ -10,6 +10,7 @@ import os
 import multiprocessing
 from tqdm import tqdm
 
+
 def plot_strikes_over_time(
     bucketed_strikes_indeces_sorted: list[list[int]],
     events: pd.DataFrame,
@@ -54,6 +55,7 @@ def plot_strikes_over_time(
     fig.write_image(output_filename, scale=3)
 
     return output_filename
+
 
 def plot_avg_power_map(
     strike_indeces: list[int],
@@ -152,10 +154,13 @@ def _plot_strike(args):
     output_filename = os.path.join(strike_dir, start_time_dt) + ".png"
     plot_avg_power_map(strike_indeces, events, output_filename=output_filename)
 
-def plot_all_strikes(bucketed_strike_indeces, events, strike_dir="strikes", num_cores=1):
+
+def plot_all_strikes(
+    bucketed_strike_indeces, events, strike_dir="strikes", num_cores=1
+):
     # Prepare the argument tuples for each strike
     args_list = [
-        (strike_indeces, events, strike_dir) 
+        (strike_indeces, events, strike_dir)
         for strike_indeces in bucketed_strike_indeces
     ]
 
