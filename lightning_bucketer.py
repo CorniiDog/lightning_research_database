@@ -1,9 +1,3 @@
-# Install your designated CUDA:
-# https://developer.nvidia.com/cuda-downloads
-
-# Specified cupy version: https://pypi.org/project/cupy/
-
-
 import cupy as cp
 import numpy as np
 import pandas as pd

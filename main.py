@@ -75,7 +75,7 @@ params = {
 }
 
 lightning_bucketer.USE_CACHE = (
-    True  # Generate cache of result to save time for future requests
+    True  # Generate cache of result to save time for future identical requests
 )
 bucketed_strikes_indeces = lightning_bucketer.bucket_dataframe_lightnings(
     events, params=params

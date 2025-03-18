@@ -1,10 +1,7 @@
-# sudo apt-get install libmagickwand-dev
-
 import pandas as pd
 import datetime
 import plotly.express as px
 import plotly.graph_objects as go
-from scipy.interpolate import griddata
 import numpy as np
 from scipy.stats import binned_statistic_2d
 from typing import List
