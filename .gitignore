@@ -4,3 +4,4 @@ lylout_db.db
 lylout_files/
 file_log.json
 result_cache.pkl
+strikes/
