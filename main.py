@@ -1,6 +1,7 @@
 import os
 import database_parser
 import lightning_bucketer
+import lightning_plotters
 import logger
 import datetime
 
@@ -38,8 +39,8 @@ print("Headers:", headers)
 # 'z'            -> Meters (ECEF Z-coordinate in WGS84)
 
 
-start_time = datetime.datetime(2022, 7, 12, 1, 3, tzinfo=datetime.timezone.utc).timestamp()
-end_time = datetime.datetime(2022, 9, 2, 19, 3, tzinfo=datetime.timezone.utc).timestamp()
+start_time = datetime.datetime(2022, 7, 12, 0, 0, tzinfo=datetime.timezone.utc).timestamp()
+end_time = datetime.datetime(2022, 7, 12, 23, 0, tzinfo=datetime.timezone.utc).timestamp()
 
 # Build filter list for time_unix boundaries.
 filters = [
@@ -68,4 +69,14 @@ params = {
 lightning_bucketer.USE_CACHE = True # Generate cache of result to save time for future requests
 bucketed_strikes_indeces = lightning_bucketer.bucket_dataframe_lightnings(events, params=params)
 
+# Sort the bucketed strikes indices by the length of each sublist in descending order.
+bucketed_strikes_indeces_sorted = sorted(bucketed_strikes_indeces, key=len, reverse=True)
 
+# Optionally, print each bucket with its length.
+for i, strike in enumerate(bucketed_strikes_indeces_sorted, start=1):
+    start_time_unix = events.iloc[strike[0]]['time_unix']
+    print(f"Bucket {i}: Length = {len(strike)}: Time = {start_time_unix}")
+
+lightning_plotters.plot_strikes_over_time(bucketed_strikes_indeces_sorted, events)
+
+lightning_plotters.plot_strike_instance(bucketed_strikes_indeces_sorted[0], events)

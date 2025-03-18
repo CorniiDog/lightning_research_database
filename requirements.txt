@@ -1,2 +1,5 @@
 pyproj
 pandas
+plotly
+kaleido
+Wand
