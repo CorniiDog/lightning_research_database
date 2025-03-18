@@ -20,7 +20,7 @@ dat_file_paths = database_parser.get_dat_files_paths(
 for file_path in dat_file_paths:
     if not logger.is_logged(file_path):
         print(file_path, "not appropriately added to the database. Adding...")
-        database_parser.parse_lylout(file_path, DB_PATH="new/path/to/database.db")
+        database_parser.parse_lylout(file_path)
         logger.log_file(file_path)  # Mark as logged and unmodified
     else:
         print(file_path, "was parsed and added to the database already")
