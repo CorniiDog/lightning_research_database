@@ -1,4 +1,4 @@
-## Connor's Lightning Parser Program
+# Connor's Lightning Parser Program
 
 ![avg_power_map](strike_avg_power_map.png)
 
@@ -8,8 +8,22 @@ Assuming the following specs (tested on a laptop with Ubuntu 22.04):
  - 16 GB DDR4 RAM (Mobile)
  - RTX 2060 Mobile (6GB)
  - Intel i7-10750H (6 Cores -> 12 Threads)
+ - Python 3.12.3 (Regular version/Not conda)
 
 One million datapoints should take roughly 7 minutes. Running the same exact parameters again would take 5-10 seconds due to caching into "result_cache.pkl".
+
+## Start
+
+### Getting Started
+
+1. Git clone the project
+`git clone https://github.com/CorniiDog/lightning_research_database.git`
+
+2. Open the project in VSCode
+
+3. Create a virtual environment (`cmd+shift+p` for MACOS or `ctrl+shift+p` for Windows) -> "Python:Select Interpreter" -> ".venv" and then select a specified version.
+
+4. Either check the box for "requirements.txt" before continuing, or after re-opening the terminal to do `pip install -r requirements.txt`
 
 ### Note that the library uses CUDA
 
@@ -83,3 +97,4 @@ lightning_bucketer.USE_CACHE = (
 > ```py
 > database_parser.parse_lylout(file_path, DB_PATH="new/path/to/database.db")
 > ```
+
