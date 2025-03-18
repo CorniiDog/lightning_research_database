@@ -65,3 +65,12 @@ lightning_bucketer.USE_CACHE = (
 > Some individuals may upload a compressed LYLOUT file without adding a suggestive extension filename. Make sure that all LYLOUT files are able to be readable as a text file. If they are not, they are likely compressed, with or without the extension name. It is suggested to try to add the ".gz" extension at the end manually by renaming the file, and attempt to unzip it. If that is not successful, try adding ".zip" and attempt to unzip.
 >
 >![gz_example](.img/gz_example.png)
+
+> [!NOTE]
+> When data is added to "lylout_files", everything gets hashed and recorded into "lylout_db.db". This ".db" file is a SQL database that stores all historical lightning strikes. If the database is becoming too large, you can simply delete the "lylout_db.db" file.
+>
+> To relocate the database file (for example, to an external hard drive), you can change the path via:
+>
+> ```py
+> database_parser.parse_lylout(file_path, DB_PATH="new/path/to/database.db")
+> ```
