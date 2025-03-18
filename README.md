@@ -2,6 +2,8 @@
 
 ![avg_power_map](strike_avg_power_map.png)
 
+This library extracts LYLOUT data and processes millions of datapoints to a reasonably fast and optimized speed. This project is meant to be a framework for applications to implement and parse data more appropriately.
+
 ### Note that the library uses CUDA
 
 >1. Install your designated CUDA: https://developer.nvidia.com/cuda-downloads
