@@ -47,8 +47,8 @@ filters = [
     ("time_unix", ">=", start_time),
     ("time_unix", "<=", end_time),
     ("reduced_chi2", "<", 2.0),
-    ("num_stations", ">=", 6),
-    ("alt", "<=", 20000), # 20 km = 20000m
+    ("num_stations", ">=", 7),
+    ("alt", "<=", 17000), # 20 km = 20000m
     ("alt", ">", 0), # Above ground
     ("power_db",  ">", -4), # dBW
     ("power_db",  "<", 50), # dBW
@@ -63,7 +63,7 @@ params = {
   "max_lightning_speed": 299792.458, # m/s
   "min_lightning_speed": 0, # m/s
   "min_lightning_points": 300, # The minimum number of points to pass the minimum amount
-  "max_lightning_time_threshold": 0.2 # seconds between points
+  "max_lightning_time_threshold": 0.15 # seconds between points
 }
 
 lightning_bucketer.USE_CACHE = True # Generate cache of result to save time for future requests
@@ -72,11 +72,25 @@ bucketed_strikes_indeces = lightning_bucketer.bucket_dataframe_lightnings(events
 # Sort the bucketed strikes indices by the length of each sublist in descending order.
 bucketed_strikes_indeces_sorted = sorted(bucketed_strikes_indeces, key=len, reverse=True)
 
-# Optionally, print each bucket with its length.
-for i, strike in enumerate(bucketed_strikes_indeces_sorted, start=1):
-    start_time_unix = events.iloc[strike[0]]['time_unix']
-    print(f"Bucket {i}: Length = {len(strike)}: Time = {start_time_unix}")
+len_strikes = len(bucketed_strikes_indeces_sorted)
+print(f"Number of strikes matching criteria: {len_strikes}")
 
-lightning_plotters.plot_strikes_over_time(bucketed_strikes_indeces_sorted, events)
+if len(bucketed_strikes_indeces_sorted) == 0:
+   print("Data too restrained. ")
+else:
+  # Optionally, print each bucket with its length.
+  for i, strike in enumerate(bucketed_strikes_indeces_sorted, start=1):
+      start_time_unix = events.iloc[strike[0]]['time_unix']
+      print(f"Bucket {i}: Length = {len(strike)}: Time = {start_time_unix}")
 
-lightning_plotters.plot_strike_instance(bucketed_strikes_indeces_sorted[0], events)
+  print("Plotting strike points over time")
+  lightning_plotters.plot_strikes_over_time(bucketed_strikes_indeces_sorted, events)
+
+
+  print("Plotting densest strike instance as a heatmap")
+  lightning_plotters.plot_avg_power_map(bucketed_strikes_indeces_sorted[0], events)
+
+  print("Plotting densest strike instance")
+  lightning_plotters.plot_strike_instance(bucketed_strikes_indeces_sorted[0], events)
+
+  print("Finished generating plots")
