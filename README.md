@@ -7,15 +7,21 @@
 >1. Install your designated CUDA: https://developer.nvidia.com/cuda-downloads
 >
 >2. Determine CUDA version by typing into terminal: `nvidia-smi`
+>
 >![smi](.img/smi-screenshot.png)
+>
 >3. Install your designated cupy version: https://pypi.org/project/cupy/
+>
 >![cupy](.img/cupy_versions.png)
+>
 > As My `nvidia-smi` stated that my CUDA version was 12.8, I would do `pip install cupy-cuda12x`
 
 ### To Run the project
 
 1. Drag and drop your LYLOUT text files into "lylout_files" directory.
+
 ![lylout](.img/lylout_files.png)
+
 2. Modify the filters in "main.py":
 ```py
 start_time = datetime.datetime(
@@ -57,4 +63,5 @@ lightning_bucketer.USE_CACHE = (
 
 > [!NOTE]
 > Some individuals may upload a compressed LYLOUT file without adding a suggestive extension filename. Make sure that all LYLOUT files are able to be readable as a text file. If they are not, they are likely compressed, with or without the extension name. It is suggested to try to add the ".gz" extension at the end manually by renaming the file, and attempt to unzip it. If that is not successful, try adding ".zip" and attempt to unzip.
-![gz_example](.img/gz_example.png)
+>
+>![gz_example](.img/gz_example.png)
