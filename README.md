@@ -2,7 +2,14 @@
 
 ![avg_power_map](strike_avg_power_map.png)
 
-This library extracts LYLOUT data and processes millions of datapoints to a reasonably fast and optimized speed. This project is meant to be a framework for applications to implement and parse data more appropriately.
+This library extracts LYLOUT data, store it into a lightning database, and processes millions of datapoints in the database to a reasonably fast and optimized speed. This project is meant to be a framework for applications to implement and parse data more appropriately.
+
+Assuming the following specs (tested on a laptop with Ubuntu 22.04):
+ - 16 GB DDR4 RAM (Mobile)
+ - RTX 2060 Mobile (6GB)
+ - Intel i7-10750H (6 Cores -> 12 Threads)
+
+One million datapoints should take roughly 7 minutes. Running the same exact parameters again would take 5-10 seconds due to caching into "result_cache.pkl".
 
 ### Note that the library uses CUDA
 
