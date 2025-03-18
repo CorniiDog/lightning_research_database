@@ -9,6 +9,8 @@ import shutil
 lightning_data_folder = "lylout_files"
 data_extension = ".dat"
 
+CPU_PCT = 0.7 # Percentage of CPU's to use for multiprocessing when necessary
+
 os.makedirs(lightning_data_folder, exist_ok=True)  # Ensure that it exists
 
 dat_file_paths = database_parser.get_dat_files_paths(
@@ -43,10 +45,10 @@ print("Headers:", headers)
 
 
 start_time = datetime.datetime(
-    2022, 7, 13, 0, 0, tzinfo=datetime.timezone.utc
+    2022, 7, 12, 0, 0, tzinfo=datetime.timezone.utc
 ).timestamp()
 end_time = datetime.datetime(
-    2022, 7, 13, 23, 0, tzinfo=datetime.timezone.utc
+    2022, 7, 12, 23, 0, tzinfo=datetime.timezone.utc
 ).timestamp()
 
 # Build filter list for time_unix boundaries.
@@ -98,26 +100,18 @@ else:
     print("Plotting strike points over time")
     lightning_plotters.plot_strikes_over_time(bucketed_strikes_indeces_sorted, events)
 
-
+    print("Plotting all strikes into a readable heatmap.")
     strike_dir = "strikes"
+    num_cores = int(max(CPU_PCT*os.cpu_count(), 1)) # calculate the number of cores to use
 
     # Remove the strikes directory if it exists
     if os.path.exists(strike_dir):
         shutil.rmtree(strike_dir)
     
     os.makedirs(strike_dir, exist_ok=True)
-    for i, strike in enumerate(bucketed_strikes_indeces_sorted):
-      pct = 100*(i+1)/len_strikes
-      print(f"Plotting average power heatmap: {pct:.2f}%")
+    lightning_plotters.plot_all_strikes(bucketed_strikes_indeces_sorted, events, strike_dir,num_cores)
 
-      start_time_unix = events.iloc[bucketed_strikes_indeces_sorted[i][0]]["time_unix"]
-      start_time_dt = datetime.datetime.fromtimestamp(
-          start_time_unix, tz=datetime.timezone.utc
-      ).strftime("%Y-%m-%d %H:%M:%S UTC")
-
-      output_filename = os.path.join(strike_dir, start_time_dt) + ".png"
-      lightning_plotters.plot_avg_power_map(bucketed_strikes_indeces_sorted[i], events, output_filename=output_filename)
-
+    print("Exporting largest instance on file")
     # Just plot the largest instance
     lightning_plotters.plot_avg_power_map(bucketed_strikes_indeces_sorted[0], events)
 

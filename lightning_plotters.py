@@ -9,7 +9,9 @@ import numpy as np
 from scipy.stats import binned_statistic_2d
 from typing import List
 from scipy.ndimage import gaussian_filter
-
+import os
+import multiprocessing
+from tqdm import tqdm
 
 def plot_strikes_over_time(
     bucketed_strikes_indeces_sorted: list[list[int]],
@@ -139,3 +141,29 @@ def plot_avg_power_map(
     fig.write_image(output_filename, scale=3)
 
     return output_filename
+
+
+def _plot_strike(args):
+    strike_indeces, events, strike_dir = args
+
+    # Get the start time
+    start_time_unix = events.iloc[strike_indeces[0]]["time_unix"]
+    start_time_dt = datetime.datetime.fromtimestamp(
+        start_time_unix, tz=datetime.timezone.utc
+    ).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    output_filename = os.path.join(strike_dir, start_time_dt) + ".png"
+    plot_avg_power_map(strike_indeces, events, output_filename=output_filename)
+
+def plot_all_strikes(bucketed_strike_indeces, events, strike_dir="strikes", num_cores=1):
+    # Prepare the argument tuples for each strike
+    args_list = [
+        (strike_indeces, events, strike_dir) 
+        for strike_indeces in bucketed_strike_indeces
+    ]
+
+    # Use a pool of worker processes to parallelize
+    with multiprocessing.Pool(processes=num_cores) as pool:
+        # Use imap so that we can attach tqdm for a progress bar
+        for _ in tqdm(pool.imap(_plot_strike, args_list), total=len(args_list)):
+            pass
