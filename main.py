@@ -196,7 +196,7 @@ print(f"Number of strikes matching criteria: {len(bucketed_strikes_indeces_sorte
 
 # Stop the program if the data is too restrained
 if len(bucketed_strikes_indeces_sorted) == 0:
-    print("Data too restrained. ")
+    print("Data too restrained.")
     exit()
 
 # Print each bucket with its length to terminal
