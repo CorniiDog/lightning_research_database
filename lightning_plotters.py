@@ -16,6 +16,22 @@ def plot_strikes_over_time(
     events: pd.DataFrame,
     output_filename="strike_points_over_time.png",
 ) -> str:
+    """
+    Generate a scatter plot of lightning strike points over time and save it as an image.
+
+    The function extracts the start time (as a timezone-aware datetime) and the number of strike points
+    from each bucket in the sorted list of lightning strikes. It then creates a scatter plot with lines
+    connecting the points using Plotly, and finally saves the plot to a specified file.
+
+    Parameters:
+      bucketed_strikes_indeces_sorted (list of list of int): Sorted list of lightning strike indices,
+                                                             where each sublist corresponds to a strike.
+      events (pandas.DataFrame): DataFrame containing lightning event data, including a 'time_unix' column.
+      output_filename (str): The filename to save the resulting plot. Defaults to "strike_points_over_time.png".
+
+    Returns:
+      str: The output filename where the image is saved.
+    """
     # Prepare data: For each bucket, extract the start time (as a timezone-aware datetime) and the number of strike points.
     plot_data = []
     for strike in bucketed_strikes_indeces_sorted:
@@ -66,16 +82,21 @@ def plot_avg_power_map(
     output_filename: str = "strike_avg_power_map.png",
 ) -> str:
     """
-    Generates a heatmap of average power (dBW) over latitude/longitude for the
-    specified strike event indices. Applies a Gaussian blur to the binned data.
+    Generate a heatmap of average power (in dBW) over latitude/longitude for a specified lightning strike.
 
-    :param strike_indeces: A list of integer indices referencing rows in 'events'.
-    :param events: A Pandas DataFrame containing at least 'lat', 'lon', and 'power_db' columns.
-    :param lat_bins: Number of bins for latitude.
-    :param lon_bins: Number of bins for longitude.
-    :param sigma: Standard deviation for the Gaussian kernel used to blur the data.
-    :param output_filename: Filename for the output image (PNG or SVG).
-    :return: The output filename.
+    This function bins the strike event data into a 2D grid and calculates the mean power in each bin.
+    It then applies a Gaussian blur to smooth the binned data and creates a heatmap using Plotly.
+
+    Parameters:
+      strike_indeces (list of int): List of indices corresponding to rows in the 'events' DataFrame for a specific strike.
+      events (pandas.DataFrame): DataFrame containing at least 'lat', 'lon', and 'power_db' columns.
+      lat_bins (int): Number of bins for latitude. Defaults to 500.
+      lon_bins (int): Number of bins for longitude. Defaults to 500.
+      sigma (float): Standard deviation for the Gaussian kernel applied for smoothing. Defaults to 2.0.
+      output_filename (str): Filename for the output image. Defaults to "strike_avg_power_map.png".
+
+    Returns:
+      str: The output filename where the heatmap image is saved.
     """
 
     strike_events = events.iloc[strike_indeces]
@@ -143,6 +164,21 @@ def plot_avg_power_map(
 
 
 def _plot_strike(args):
+    """
+    Helper function to generate and save an average power heatmap for a single lightning strike.
+
+    This function is designed for parallel processing. It unpacks the input arguments, computes the strike's start time,
+    constructs an output filename, and calls plot_avg_power_map to generate and save the heatmap.
+
+    Parameters:
+      args (tuple): A tuple containing:
+          - strike_indeces (list of int): List of indices representing a lightning strike.
+          - events (pandas.DataFrame): DataFrame containing the lightning event data.
+          - strike_dir (str): Directory where the heatmap image should be saved.
+
+    Returns:
+      None
+    """
     strike_indeces, events, strike_dir = args
 
     # Get the start time
@@ -158,6 +194,21 @@ def _plot_strike(args):
 def plot_all_strikes(
     bucketed_strike_indeces, events, strike_dir="strikes", num_cores=1
 ):
+    """
+    Generate and save heatmaps for all detected lightning strikes using parallel processing.
+
+    This function prepares argument tuples for each lightning strike and utilizes a multiprocessing pool
+    to generate average power heatmaps concurrently. A progress bar is displayed to indicate processing status.
+
+    Parameters:
+      bucketed_strike_indeces (list of list of int): List where each sublist contains indices corresponding to a lightning strike.
+      events (pandas.DataFrame): DataFrame containing the lightning event data.
+      strike_dir (str): Directory to save the generated heatmap images. Defaults to "strikes".
+      num_cores (int): Number of worker processes to use for parallel processing. Defaults to 1.
+
+    Returns:
+      None
+    """
     # Prepare the argument tuples for each strike
     args_list = [
         (strike_indeces, events, strike_dir)

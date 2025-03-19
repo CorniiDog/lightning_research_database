@@ -6,7 +6,17 @@ import pandas as pd
 
 
 def get_dat_files_paths(lightning_data_folder, data_extension):
-    """Return full paths of files with the given extension in the specified folder."""
+    """
+    Retrieve the full file paths of all files with a specified extension in a given folder.
+
+    Parameters:
+      lightning_data_folder (str): The directory containing the data files.
+      data_extension (str): The file extension to filter for (e.g., ".dat").
+
+    Returns:
+      list[str]: A list of full paths to the files that match the given extension.
+
+    """
     return [
         os.path.join(lightning_data_folder, f)
         for f in os.listdir(lightning_data_folder)
@@ -23,8 +33,15 @@ transformer = Transformer.from_crs("EPSG:4979", "EPSG:4978", always_xy=True)
 
 def _decode_station_mask(mask_str, station_mask_order=DEFAULT_STATION_MASK_ORDER):
     """
-    Convert a hexadecimal mask string to a comma-separated list of station names.
-    Uses the provided station_mask_order (defaults to DEFAULT_STATION_MASK_ORDER).
+    Decode a hexadecimal station mask string into a comma-separated list of station names.
+
+    Parameters:
+      mask_str (str): The hexadecimal mask string representing active stations.
+      station_mask_order (str, optional): Order in which stations are represented.
+                                          Defaults to DEFAULT_STATION_MASK_ORDER.
+
+    Returns:
+      str: A comma-separated list (all as a single string, explicitly) of station names corresponding to active bits in the mask.
     """
     mask_int = int(mask_str.strip(), 16)
     stations = []
@@ -36,9 +53,15 @@ def _decode_station_mask(mask_str, station_mask_order=DEFAULT_STATION_MASK_ORDER
 
 def _add_to_database(cursor, event):
     """
-    Inserts an event record into the events table.
-    'event' is a tuple containing:
-    (time_unix, lat, lon, alt, reduced_chi2, num_stations, power_db, power, mask, stations, x, y, z)
+    Insert an event record into the 'events' table in the database.
+
+    Parameters:
+      cursor (sqlite3.Cursor): Database cursor used to execute SQL statements.
+      event (tuple): A tuple containing event data in the following order:
+                     (time_unix, lat, lon, alt, reduced_chi2, num_stations, power_db, power, mask, stations, x, y, z)
+
+    Returns:
+      None
     """
     cursor.execute(
         """
@@ -52,8 +75,13 @@ def _add_to_database(cursor, event):
 
 def _create_database_if_not_exist(DB_PATH: str = "lylout_db.db"):
     """
-    Creates the database and events table if they do not exist.
-    Returns a sqlite3 connection object.
+    Create the SQLite database and 'events' table if they do not exist.
+
+    Parameters:
+      DB_PATH (str): Path to the SQLite database file. Defaults to "lylout_db.db".
+
+    Returns:
+      sqlite3.Connection: Connection object to the SQLite database.
     """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -88,16 +116,16 @@ def _create_database_if_not_exist(DB_PATH: str = "lylout_db.db"):
 
 def _executesql(query, params=None, DB_PATH="lylout_db.db", fetch=True):
     """
-    Executes a SQL query on the specified database.
+    Execute an SQL query on the specified SQLite database.
 
     Parameters:
-      query (str): SQL query to execute.
-      params (list/tuple, optional): Parameters for a parameterized query.
-      DB_PATH (str): Path to the SQLite database file.
-      fetch (bool): If True, returns fetched results; otherwise commits changes.
+      query (str): The SQL query to execute.
+      params (list or tuple, optional): Parameters for the parameterized query. Defaults to None.
+      DB_PATH (str): Path to the SQLite database file. Defaults to "lylout_db.db".
+      fetch (bool): If True, fetch and return the query results; otherwise, commit changes.
 
     Returns:
-      list: List of sqlite3.Row objects if fetch is True, else None.
+      list[sqlite3.Row]|None: A list of sqlite3.Row objects if fetch is True; otherwise, None.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # Enables accessing rows as dictionaries.
@@ -118,17 +146,17 @@ def _executesql(query, params=None, DB_PATH="lylout_db.db", fetch=True):
 
 def _build_where_clause(filters):
     """
-    Constructs a SQL WHERE clause from filters provided as a dict or a list.
+    Construct a SQL WHERE clause from provided filter conditions.
 
-    For a dict, each key is a column name with an equality filter.
-    For a list, each element is either a tuple (column, operator, value)
-    or a dict with keys "column", "operator", and "value".
+    Filters can be specified as a dictionary or a list. For a dictionary, each key-value pair
+    represents a column and its required value using equality. For a list, each element must be
+    either a tuple (column, operator, value) or a dictionary with keys "column", "operator", and "value".
 
     Parameters:
-      filters (dict or list): Filter specifications.
+      filters (dict or list): Filter conditions for constructing the WHERE clause.
 
     Returns:
-      tuple: (where_clause (str), params (list))
+      tuple: A tuple containing the WHERE clause (as a string) and a list of parameters.
     """
     conditions = []
     params = []
@@ -166,14 +194,14 @@ def _build_where_clause(filters):
 
 def query_events(filters, DB_PATH="lylout_db.db"):
     """
-    Queries the 'events' table using filters provided as a dict or list.
+    Query the 'events' table in the database using specified filter conditions.
 
     Parameters:
-      filters (dict or list): Filter conditions to apply.
-      DB_PATH (str): Path to the SQLite database.
+      filters (dict or list): Filter conditions to apply for querying.
+      DB_PATH (str): Path to the SQLite database file. Defaults to "lylout_db.db".
 
     Returns:
-      list: Query result rows.
+      list: A list of sqlite3.Row objects representing the query results.
     """
     where_clause, params = _build_where_clause(filters)
     query = f"SELECT * FROM events {where_clause}"
@@ -182,14 +210,14 @@ def query_events(filters, DB_PATH="lylout_db.db"):
 
 def query_events_as_dataframe(filters, DB_PATH="lylout_db.db"):
     """
-    Queries the 'events' table using filters and returns results as a pandas DataFrame.
+    Query the 'events' table and return the results as a pandas DataFrame.
 
     Parameters:
-      filters (dict or list): Filter conditions to apply.
-      DB_PATH (str): Path to the SQLite database.
+      filters (dict or list): Filter conditions to apply for querying.
+      DB_PATH (str): Path to the SQLite database file. Defaults to "lylout_db.db".
 
     Returns:
-      pandas.DataFrame: Query results.
+      pandas.DataFrame: DataFrame containing the query results.
     """
     results = query_events(filters, DB_PATH)  # Get results as a list of sqlite3.Row
     df = pd.DataFrame(results, columns=get_headers(DB_PATH))  # Convert to DataFrame
@@ -198,13 +226,13 @@ def query_events_as_dataframe(filters, DB_PATH="lylout_db.db"):
 
 def get_headers(DB_PATH="lylout_db.db") -> list:
     """
-    Retrieves the column names (headers) from the 'events' table in the SQL database.
+    Retrieve the column names (headers) from the 'events' table in the SQLite database.
 
     Parameters:
-      DB_PATH (str): Path to the SQLite database.
+      DB_PATH (str): Path to the SQLite database file. Defaults to "lylout_db.db".
 
     Returns:
-      list: A list of column names from the 'events' table.
+      list[str]: A list of column names from the 'events' table.
     """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -215,6 +243,28 @@ def get_headers(DB_PATH="lylout_db.db") -> list:
 
 
 def _parse_dat_extension(lylout_path: str, DB_PATH: str = "lylout_db.db"):
+    """
+    Parse a .dat file containing LYLOUT data, extract event information, and insert the events into the database.
+
+    The function performs the following:
+      - Validates that the file has a .dat extension.
+      - Reads the header to optionally override the default station mask order.
+      - Extracts the base date from the header (using the format "Data start time: MM/DD/YY HH:MM:SS").
+      - Locates the start of the data section marked by "*** data ***".
+      - Processes each subsequent line to extract event fields, including conversion from UT seconds to a Unix timestamp,
+        conversion of power from dBW to watts, and transformation of geodetic coordinates to ECEF.
+      - Inserts each parsed event into the 'events' table of the SQLite database.
+
+    Parameters:
+      lylout_path (str): Path to the LYLOUT .dat file.
+      DB_PATH (str): Path to the SQLite database file. Defaults to "lylout_db.db".
+
+    Returns:
+      None
+
+    Raises:
+      Exception: If the file does not have a .dat extension, the base date is not found, or the data section is missing.
+    """
     if not lylout_path.lower().endswith(".dat"):
         raise Exception("File must be a .dat file")
 
@@ -308,5 +358,17 @@ def _parse_dat_extension(lylout_path: str, DB_PATH: str = "lylout_db.db"):
 
 
 def parse_lylout(lylout_path: str, DB_PATH: str = "lylout_db.db"):
+    """
+    Parse a LYLOUT data file and populate the database with event records.
+
+    This function determines if the provided file is a .dat file and, if so, calls the appropriate parser to process and store the data.
+
+    Parameters:
+      lylout_path (str): Path to the LYLOUT data file.
+      DB_PATH (str): Path to the SQLite database file. Defaults to "lylout_db.db".
+
+    Returns:
+      None
+    """
     if lylout_path.lower().endswith(".dat"):
         _parse_dat_extension(lylout_path, DB_PATH)

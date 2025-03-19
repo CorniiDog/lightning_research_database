@@ -4,3 +4,15 @@ plotly
 kaleido
 scipy
 tqdm
+xarray
+numpy
+scikit-learn
+matplotlib
+cartopy
+metpy
+jupyterlab
+ipywidgets
+ipympl
+setuptools
+pytest-cov
+pytest-mpl
