@@ -16,3 +16,4 @@ ipympl
 setuptools
 pytest-cov
 pytest-mpl
+imageio

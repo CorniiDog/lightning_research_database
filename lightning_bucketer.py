@@ -1,4 +1,14 @@
-import cupy as cp
+try:
+  import cupy as cp
+except ModuleNotFoundError:
+    print(
+        "CuPy is not installed.\n"
+        "Please install the appropriate version for your system.\n"
+        "Refer to the project's README for detailed instructions:\n"
+        "    ./README.md"
+    )
+    exit(1)
+    
 import numpy as np
 import pandas as pd
 import pickle as pkl
@@ -9,13 +19,15 @@ import hashlib
 def _bucket_dataframe_lightnings(
     df: pd.DataFrame,
     max_time_threshold,
+    max_lightning_duration,
     max_dist_between_pts,
     max_speed,
     min_speed=0,
     min_pts=0,
 ) -> list[list[int]]:
     """
-    Buckets the dataframe into groups of lightning strikes based on temporal and spatial constraints.
+    Buckets the dataframe into groups of lightning strikes based on temporal and spatial constraints,
+    now incorporating a maximum lightning duration to prevent grouping events over an unrealistic time span.
 
     This function performs the following steps:
       1. Sorts the dataframe by 'time_unix'.
@@ -26,18 +38,19 @@ def _bucket_dataframe_lightnings(
          - Minimum number of points in a group (min_pts).
          - Spatial proximity (max_dist_between_pts).
          - Speed constraints (min_speed and max_speed).
+         - Maximum lightning duration (max_lightning_duration): If the duration of a subgroup exceeds this value,
+           it is finalized and a new subgroup is started.
       5. Returns a list of lists, where each sublist contains indices from the original dataframe corresponding to
          a detected lightning strike.
 
     Parameters:
-      df (pandas.DataFrame): DataFrame containing lightning event data with headers including
-                             ['id', 'time_unix', 'lat', 'lon', 'alt', 'reduced_chi2', 'num_stations',
-                              'power_db', 'power', 'mask', 'stations', 'x', 'y', 'z'].
-      max_time_threshold (float): Maximum allowed time difference between consecutive points (in seconds) to group them together.
-      max_dist_between_pts (float): Maximum allowed spatial distance (in meters) between points to consider them part of the same strike.
+      df (pandas.DataFrame): DataFrame containing lightning event data.
+      max_time_threshold (float): Maximum allowed time difference between consecutive points (in seconds).
+      max_lightning_duration (float): Maximum duration (in seconds) for a lightning strike.
+      max_dist_between_pts (float): Maximum allowed spatial distance (in meters) between points.
       max_speed (float): Maximum allowed speed (in m/s) between points.
       min_speed (float, optional): Minimum allowed speed (in m/s) between points. Defaults to 0.
-      min_pts (int, optional): Minimum number of points required for a group to be considered a valid lightning strike. Defaults to 0.
+      min_pts (int, optional): Minimum number of points required for a valid lightning strike. Defaults to 0.
 
     Returns:
       list[list[int]]: A list where each sublist contains the indices of the dataframe representing a lightning strike.
@@ -46,9 +59,7 @@ def _bucket_dataframe_lightnings(
     time_unix_gpu = cp.asarray(df["time_unix"].values)
     delta_t = cp.diff(time_unix_gpu)
 
-    # Compute group indices vectorized:
-    # cumsum basically makes a running total that increments every time delta_t is surpassed
-    # A highly optimized method at grouping by time threshold
+    # Group events by time threshold using cumulative sum.
     time_groups = cp.concatenate(
         (
             cp.array([0], dtype=cp.int32),
@@ -56,7 +67,7 @@ def _bucket_dataframe_lightnings(
         )
     )
     print(time_groups)
-    print("Done")
+    print("Done grouping by time threshold.")
 
     group_ids = cp.asnumpy(time_groups)
     unique_groups = np.unique(group_ids)
@@ -67,16 +78,15 @@ def _bucket_dataframe_lightnings(
     for i, group in enumerate(unique_groups):
         group_indices = np.where(group_ids == group)[0]
 
-        # Ensure minimum number of points
+        # Skip groups with fewer points than required.
         if len(group_indices) < min_pts:
             continue
-
+        
         pct = 100 * (i + 1) / total_unique_groups
         print(
             f"Progress: {pct:.2f}% ({i+1}/{total_unique_groups}). Currently processing {len(group_indices)} points."
         )
 
-        # Retrieve the group events.
         group_df = df.iloc[group_indices]
 
         x_vals = group_df["x"].values
@@ -84,42 +94,53 @@ def _bucket_dataframe_lightnings(
         z_vals = group_df["z"].values
         unix_vals = group_df["time_unix"].values
 
-        # Example modification for caching subgroup GPU arrays
-        sub_groups = []  # List to hold dictionaries for each subgroup
+        # Initialize list to hold subgroups (potential lightning strikes) for this time group.
+        sub_groups = []
 
         for j in range(len(x_vals)):
-            # Create an event record
             event_x = x_vals[j]
             event_y = y_vals[j]
             event_z = z_vals[j]
             event_unix = unix_vals[j]
 
+            # Before processing the current event, finalize subgroups that have exceeded max_lightning_duration.
+            new_sub_groups = []
+            for sg in sub_groups:
+                # Check if current event time exceeds the allowed duration from subgroup's first event.
+                if event_unix - sg["unix"][0] > max_lightning_duration:
+                    # Finalize subgroup if it meets the minimum points requirement.
+                    if len(sg["indices"]) >= min_pts:
+                        final_subgroup = [group_indices[idx] for idx in sg["indices"]]
+                        lightning_strikes.append(final_subgroup)
+                    # Do not retain this subgroup.
+                else:
+                    new_sub_groups.append(sg)
+            sub_groups = new_sub_groups
+
             found = False
-            if sub_groups:
-                for sg in sub_groups:
-                    # Compute distances using already cached GPU arrays
-                    distances = cp.sqrt(
-                        (event_x - sg["x"]) ** 2
-                        + (event_y - sg["y"]) ** 2
-                        + (event_z - sg["z"]) ** 2
-                    )
-                    if cp.any(distances <= max_dist_between_pts):
-                        # Check speeds only for points within the distance threshold
-                        dt = cp.abs(event_unix - sg["unix"])
-                        dt = cp.where(dt == 0, 1e-6, dt)
-                        speeds = distances / dt
-                        if cp.any((speeds >= min_speed) & (speeds <= max_speed)):
+            # Attempt to add the event to an existing subgroup.
+            for sg in sub_groups:
+                # Check spatial proximity.
+                distances = cp.sqrt(
+                    (event_x - sg["x"]) ** 2 + (event_y - sg["y"]) ** 2 + (event_z - sg["z"]) ** 2
+                )
+                if cp.any(distances <= max_dist_between_pts):
+                    # Check speed constraints only for points within spatial threshold.
+                    dt = cp.abs(event_unix - sg["unix"])
+                    dt = cp.where(dt == 0, 1e-6, dt)
+                    speeds = distances / dt
+                    if cp.any((speeds >= min_speed) & (speeds <= max_speed)):
+                        # Ensure adding the event doesn't violate max_lightning_duration.
+                        if event_unix - sg["unix"][0] <= max_lightning_duration:
                             sg["indices"].append(j)
-                            # Update subgroup GPU arrays by concatenating the new event
                             sg["x"] = cp.concatenate([sg["x"], cp.array([event_x])])
                             sg["y"] = cp.concatenate([sg["y"], cp.array([event_y])])
                             sg["z"] = cp.concatenate([sg["z"], cp.array([event_z])])
-                            sg["unix"] = cp.concatenate(
-                                [sg["unix"], cp.array([event_unix])]
-                            )
+                            sg["unix"] = cp.concatenate([sg["unix"], cp.array([event_unix])])
                             found = True
                             break
 
+            # If event did not fit in any subgroup, start a new subgroup.
             if not found:
                 sub_groups.append(
                     {
@@ -131,18 +152,15 @@ def _bucket_dataframe_lightnings(
                     }
                 )
 
-        for sub_group in sub_groups:
-            if len(sub_group["indices"]) < min_pts:
-                continue
-
-            final_subgroup = []
-            for idx in sub_group["indices"]:
-                final_subgroup.append(group_indices[idx])
-            lightning_strikes.append(final_subgroup)
+        # After processing all events in the group, finalize remaining subgroups.
+        for sg in sub_groups:
+            if len(sg["indices"]) >= min_pts:
+                final_subgroup = [group_indices[idx] for idx in sg["indices"]]
+                lightning_strikes.append(final_subgroup)
 
     print("Passed groups:", len(lightning_strikes))
-
     return lightning_strikes
+
 
 
 # The result cache file, as a pkl
@@ -273,14 +291,17 @@ def bucket_dataframe_lightnings(df: pd.DataFrame, **params) -> list[list[int]]:
         if result:
             print("Using cached result from earlier")
             return result
+        
+    print(params.get("min_lightning_points", 300))
 
     result = _bucket_dataframe_lightnings(
         df,
         max_time_threshold=params.get("max_lightning_time_threshold", 1),
+        max_lightning_duration=params.get("max_lightning_duration", 20.0),
         max_dist_between_pts=params.get("max_lightning_dist", 50000),
         max_speed=params.get("max_lightning_speed", 299792.458),
         min_speed=params.get("min_lightning_speed", 0),
-        min_pts=params.get("min_lightning_points", 300),
+        min_pts=params.get("min_lightning_points", 300),  
     )
 
     save_result_cache(df, params, result)

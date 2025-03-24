@@ -9,13 +9,17 @@ from scipy.ndimage import gaussian_filter
 import os
 import multiprocessing
 from tqdm import tqdm
-
+from io import BytesIO
+from PIL import Image
+import imageio
+import math
 
 def plot_strikes_over_time(
     bucketed_strikes_indeces_sorted: list[list[int]],
     events: pd.DataFrame,
     output_filename="strike_points_over_time.png",
-) -> str:
+    _export_fig=True
+):
     """
     Generate a scatter plot of lightning strike points over time and save it as an image.
 
@@ -67,10 +71,11 @@ def plot_strikes_over_time(
         margin=dict(l=50, r=50, t=80, b=50),
     )
 
-    # Save as svg
-    fig.write_image(output_filename, scale=3)
+    if _export_fig:
+        # Save as svg
+        fig.write_image(output_filename, scale=3)
 
-    return output_filename
+    return fig
 
 
 def plot_avg_power_map(
@@ -80,7 +85,10 @@ def plot_avg_power_map(
     lon_bins: int = 500,
     sigma: float = 2.0,
     output_filename: str = "strike_avg_power_map.png",
-) -> str:
+    _export_fig=True,
+    _range=None,
+    _bar_range=None
+):
     """
     Generate a heatmap of average power (in dBW) over latitude/longitude for a specified lightning strike.
 
@@ -102,10 +110,10 @@ def plot_avg_power_map(
     strike_events = events.iloc[strike_indeces]
 
     # Get the strike's start time from the first event.
-    start_time_unix = strike_events.iloc[0]["time_unix"]
-    start_time_dt = datetime.datetime.fromtimestamp(
-        start_time_unix, tz=datetime.timezone.utc
-    ).strftime("%Y-%m-%d %H:%M:%S UTC")
+    start_time_unix = strike_events.iloc[-1]["time_unix"]
+    start_time_dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
+    frac = int(start_time_dt.microsecond / 10000)  # Convert microseconds to hundredths (0-99)
+    start_time_dt = start_time_dt.strftime(f"%Y-%m-%d %H:%M:%S.{frac:02d} UTC")
 
     # Extract lat, lon, and power for binning.
     lat = strike_events["lat"].values
@@ -123,7 +131,7 @@ def plot_avg_power_map(
         power,
         statistic="mean",
         bins=[lat_bins, lon_bins],
-        range=[[lat_min, lat_max], [lon_min, lon_max]],
+        range=_range or [[lat_min, lat_max], [lon_min, lon_max]],
     )
 
     # Replace NaNs with 0 (or any default) so they appear in the heatmap.
@@ -137,6 +145,16 @@ def plot_avg_power_map(
     lat_centers = 0.5 * (lat_edges[:-1] + lat_edges[1:])
     lon_centers = 0.5 * (lon_edges[:-1] + lon_edges[1:])
 
+    if _bar_range:
+        _bar_min = _bar_range[0]
+        _bar_max = _bar_range[1]
+        _zauto = False
+    else:
+        _bar_min = None
+        _bar_max = None
+        _zauto = True
+
+
     # Create heatmap trace; x-axis = longitude, y-axis = latitude.
     heatmap = go.Heatmap(
         x=lon_centers,
@@ -144,13 +162,15 @@ def plot_avg_power_map(
         z=blurred_stat,
         colorscale="Viridis",
         colorbar=dict(title="Average Power (dBW)"),
-        zauto=True,
+        zauto=_zauto,
+        zmin = _bar_min,
+        zmax = _bar_max
     )
 
     # Build the figure with layout settings.
     fig = go.Figure(data=[heatmap])
     fig.update_layout(
-        title=f"Smoothed (Gaussian) Average Power Heatmap (dBW)\n ({start_time_dt})",
+        title=f"Smoothed (Gaussian) Average Power Heatmap (dBW) ({start_time_dt})",
         xaxis=dict(title="Longitude", showgrid=True, gridcolor="lightgray"),
         yaxis=dict(title="Latitude", showgrid=True, gridcolor="lightgray"),
         template="plotly_white",
@@ -158,8 +178,111 @@ def plot_avg_power_map(
     )
 
     # Export the figure to file (SVG/PNG).
-    fig.write_image(output_filename, scale=3)
+    if _export_fig:
+        fig.write_image(output_filename, scale=3)
 
+    return fig, np.max(blurred_stat)
+
+def generate_strike_gif(
+    strike_indices: list[int],
+    events: pd.DataFrame,
+    lat_bins: int = 500,
+    lon_bins: int = 500,
+    sigma: float = 2.0,
+    num_frames: int = 30,
+    output_filename: str = "strike_power_map_animation.gif",
+    duration: float = 3000,
+    looped:bool = True
+) -> str:
+    """
+    Generate a GIF animation of a lightning strike heatmap evolving over a specified number of frames.
+
+    This function sorts the lightning strike events by time, divides the total number of events into 'num_frames'
+    segments, and generates a heatmap for each cumulative segment using `plot_avg_power_map` (with PNG export omitted).
+    The frames are then compiled into a GIF using imageio.
+
+    Parameters:
+      strike_indices (list of int): List of indices for lightning strike events.
+      events (pd.DataFrame): DataFrame with at least 'lat', 'lon', 'power_db', and 'time_unix' columns.
+      lat_bins (int): Number of bins for latitude. Defaults to 500.
+      lon_bins (int): Number of bins for longitude. Defaults to 500.
+      sigma (float): Standard deviation for the Gaussian kernel used in smoothing. Defaults to 2.0.
+      num_frames (int): Number of frames in the resulting GIF. Defaults to 40.
+      output_filename (str): Filename for the output GIF. Defaults to "lightning_strike_animation.gif".
+      frame_duration (float): Duration (in milliseconds) for each frame in the GIF. Defaults to 3000 milliseconds.
+      looped (bool): The gif will loop if set to True
+
+    Returns:
+      str: The filename where the GIF animation is saved.
+    """
+
+    # Preprocess: sort indices by time and extract corresponding times into a NumPy array.
+    sorted_indices = sorted(strike_indices, key=lambda idx: events.loc[idx, "time_unix"])
+    sorted_times = np.array([events.loc[idx, "time_unix"] for idx in sorted_indices])
+
+    # Determine the overall time span among the selected events.
+    min_time = events.loc[sorted_indices[0], "time_unix"]
+    max_time = events.loc[sorted_indices[-1], "time_unix"]
+    time_interval = (max_time - min_time) / num_frames
+
+    strike_events = events.iloc[strike_indices]
+
+    # Extract lat, lon, and power for binning.
+    lat = strike_events["lat"].values
+    lon = strike_events["lon"].values
+
+    # Determine the min/max for lat/lon.
+    lat_min, lat_max = lat.min(), lat.max()
+    lon_min, lon_max = lon.min(), lon.max()
+
+    _range = [[lat_min, lat_max], [lon_min, lon_max]]
+    # Use binned_statistic_2d to compute mean power in each lat/lon bin.
+
+
+    _, max_stat = plot_avg_power_map(
+            sorted_indices,
+            events,
+            lat_bins=lat_bins,
+            lon_bins=lon_bins,
+            sigma=sigma,
+            _export_fig=False,
+            _range=_range,
+        )
+
+    frames = []
+    # Generate frames based on time intervals.
+    for frame in range(1, num_frames + 1):
+        current_time_threshold = min_time + frame * time_interval
+        # Filter events up to the current time threshold.
+        
+        # Quickly find the cutoff position using np.searchsorted.
+        pos = np.searchsorted(sorted_times, current_time_threshold, side='right')
+        frame_indices = sorted_indices[:pos]   
+        fig, _ = plot_avg_power_map(
+            frame_indices,
+            events,
+            lat_bins=lat_bins,
+            lon_bins=lon_bins,
+            sigma=sigma,
+            _export_fig=False,
+            _range=_range,
+            _bar_range=[0, max_stat]
+        )
+        
+        # Convert the Plotly figure to an image.
+        img_bytes = fig.to_image(format="png", scale=3)
+        img = Image.open(BytesIO(img_bytes))
+        frames.append(np.array(img))
+
+    # Logic to set to 0 (means indefinitely)
+    # Else loop once
+    looped = 0 if looped else 1
+
+    # Split the gif's duration to the number of frames
+    frame_duration = duration/num_frames
+
+    # Save all frames as a GIF.
+    imageio.mimsave(output_filename, frames, duration=frame_duration, loop=looped)
     return output_filename
 
 
@@ -179,7 +302,7 @@ def _plot_strike(args):
     Returns:
       None
     """
-    strike_indeces, events, strike_dir = args
+    strike_indeces, events, strike_dir, as_gif = args
 
     # Get the start time
     start_time_unix = events.iloc[strike_indeces[0]]["time_unix"]
@@ -187,12 +310,16 @@ def _plot_strike(args):
         start_time_unix, tz=datetime.timezone.utc
     ).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    output_filename = os.path.join(strike_dir, start_time_dt) + ".png"
-    plot_avg_power_map(strike_indeces, events, output_filename=output_filename)
+    if not as_gif:
+        output_filename = os.path.join(strike_dir, start_time_dt) + ".png"
+        plot_avg_power_map(strike_indeces, events, output_filename=output_filename)
+    else:
+        output_filename = os.path.join(strike_dir, start_time_dt) + ".gif"
+        generate_strike_gif(strike_indeces, events, output_filename=output_filename)
 
 
 def plot_all_strikes(
-    bucketed_strike_indeces, events, strike_dir="strikes", num_cores=1
+    bucketed_strike_indeces, events, strike_dir="strikes", num_cores=1, as_gif=False
 ):
     """
     Generate and save heatmaps for all detected lightning strikes using parallel processing.
@@ -211,7 +338,7 @@ def plot_all_strikes(
     """
     # Prepare the argument tuples for each strike
     args_list = [
-        (strike_indeces, events, strike_dir)
+        (strike_indeces, events, strike_dir, as_gif)
         for strike_indeces in bucketed_strike_indeces
     ]
 

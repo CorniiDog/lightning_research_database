@@ -42,7 +42,7 @@ the file.
 
 # For certain situations, the program may use multiple CPU's to speed up the processing.
 # You can designate a percentage, or explicitly define in num_cores
-CPU_PCT = 0.7  # Percentage of CPU's to use for multiprocessing when necessary
+CPU_PCT = 0.9  # Percentage of CPU's to use for multiprocessing when necessary
 NUM_CORES = int(max(CPU_PCT * os.cpu_count(), 1))
 
 ####################################################################################
@@ -124,7 +124,7 @@ filters = [
     ("time_unix", "<=", end_time),  # In unix
     ("reduced_chi2", "<", 2.0,),  # The chi^2 (reliability index) value to accept the data
     ("num_stations", ">=", 7),  # Number of stations that have visibly seen the strike
-    ("alt", "<=", 17000),  # alt is in meters. Therefore 20 km = 20000m
+    ("alt", "<=", 18000),  # alt is in meters. Therefore 20 km = 20000m
     ("alt", ">", 0),  # Above ground
     ("power_db", ">", -4),  # In dBW
     ("power_db", "<", 50),  # In dBW
@@ -143,11 +143,12 @@ print(events)
 # Additional parameters that determines "What points make up a single lightning strike"
 # They are explicitly defined
 params = {
-    "max_lightning_dist": 50000,  # meters
+    "max_lightning_dist": 15000,  # meters
     "max_lightning_speed": 299792.458,  # m/s
     "min_lightning_speed": 0,  # m/s
-    "min_lightning_points": 300,  # The minimum number of points to pass the minimum amount
-    "max_lightning_time_threshold": 0.15,  # seconds between points
+    "min_lightning_points": 800,  # The minimum number of points to pass the minimum amount
+    "max_lightning_time_threshold": 0.5,  # seconds between points
+    "max_lightning_duration": 20, # max seconds that define an entire lightning strike. This prevents data from over-arching to minutes, which is unrealistic
 }
 
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
@@ -160,7 +161,7 @@ lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for
 # The parameters above will be passed to return bucketed_strikes_indeces, defined by type list[list[int]]
 # which is a list of all lightning stikes, such that each lightning strike is a list of all indexes
 bucketed_strikes_indeces = lightning_bucketer.bucket_dataframe_lightnings(
-    events, params=params
+    events, **params
 )
 # Example: To get a Pandas DataFrame of the first strike in the list, you do:
 # ```
@@ -217,6 +218,8 @@ print("Plotting all strikes into a readable heatmap.")
 strike_dir = "strikes"
 
 # Remove the strikes directory if it exists
+# This prevents existing plots from intertwining
+# with the existing plots.
 if os.path.exists(strike_dir):
     shutil.rmtree(strike_dir)
 
@@ -225,8 +228,15 @@ lightning_plotters.plot_all_strikes(
     bucketed_strikes_indeces_sorted, events, strike_dir, NUM_CORES
 )
 
+lightning_plotters.plot_all_strikes(
+    bucketed_strikes_indeces_sorted, events, strike_dir, NUM_CORES, as_gif=True
+)
+
+
 print("Exporting largest instance on file")
 # Just plot the largest instance
 lightning_plotters.plot_avg_power_map(bucketed_strikes_indeces_sorted[0], events)
+
+lightning_plotters.generate_strike_gif(bucketed_strikes_indeces_sorted[0], events)
 
 print("Finished generating plots")
