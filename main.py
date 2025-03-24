@@ -143,12 +143,12 @@ print(events)
 # Additional parameters that determines "What points make up a single lightning strike"
 # They are explicitly defined
 params = {
-    "max_lightning_dist": 15000,  # meters
-    "max_lightning_speed": 299792.458,  # m/s
-    "min_lightning_speed": 0,  # m/s
-    "min_lightning_points": 800,  # The minimum number of points to pass the minimum amount
-    "max_lightning_time_threshold": 0.5,  # seconds between points
-    "max_lightning_duration": 20, # max seconds that define an entire lightning strike. This prevents data from over-arching to minutes, which is unrealistic
+    "max_lightning_dist": 15000,  # max distance between two points to determine it being involved in the same strike
+    "max_lightning_speed": 299792.458,  # max speed between two points in m/s (essentially dx/dt)
+    "min_lightning_speed": 0,  # min speed between two points in m/s (essentially dx/dt)
+    "min_lightning_points": 800,  # The minimum number of points to pass the system as a "lightning strike"
+    "max_lightning_time_threshold": 0.5,  # max number of seconds between points 
+    "max_lightning_duration": 20, # max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
 }
 
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
@@ -177,7 +177,7 @@ bucketed_strikes_indeces = lightning_bucketer.bucket_dataframe_lightnings(
 
 
 # Sort the bucketed strikes indices by the length of each sublist in descending order.
-# (Strikes with points first)
+# (Strikes with most points first)
 bucketed_strikes_indeces_sorted = sorted(
     bucketed_strikes_indeces, key=len, reverse=True
 )
@@ -192,6 +192,15 @@ bucketed_strikes_indeces_sorted = sorted(
 #   sub_strike = events.iloc[bucketed_strikes_indeces_sorted[i]]
 #   # Process the dataframe however you please of the designated lightning strike
 # ```
+
+# Sort the bucketed strikes indices by strongest power.
+# Here, for each strike, we compute the maximum 'power' value from the corresponding events,
+# and sort in descending order so that the strike with the highest power comes first.
+bucketed_strikes_indeces_sorted_by_power = sorted(
+    bucketed_strikes_indeces,
+    key=lambda strike: events.loc[strike, "power"].max(),
+    reverse=True
+)
 
 print(f"Number of strikes matching criteria: {len(bucketed_strikes_indeces_sorted)}")
 
@@ -234,9 +243,15 @@ lightning_plotters.plot_all_strikes(
 
 
 print("Exporting largest instance on file")
-# Just plot the largest instance
-lightning_plotters.plot_avg_power_map(bucketed_strikes_indeces_sorted[0], events)
+# Exporting most points
+largest_strike = bucketed_strikes_indeces_sorted[0]
+lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename="most_pts.png")
+lightning_plotters.generate_strike_gif(largest_strike, events, output_filename="most_pts.gif")
 
-lightning_plotters.generate_strike_gif(bucketed_strikes_indeces_sorted[0], events)
+# Exporting strongest power
+strongest_power_strike = bucketed_strikes_indeces_sorted_by_power[0]
+lightning_plotters.plot_avg_power_map(strongest_power_strike, events, output_filename="strongest_power.png")
+lightning_plotters.generate_strike_gif(strongest_power_strike, events, output_filename="strongest_power.gif")
+
 
 print("Finished generating plots")
