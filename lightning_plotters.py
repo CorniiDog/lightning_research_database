@@ -83,7 +83,8 @@ def plot_avg_power_map(
     events: pd.DataFrame,
     lat_bins: int = 500,
     lon_bins: int = 500,
-    sigma: float = 2.0,
+    sigma: float = 1.0,
+    transparency_threshold:float = 0.01,
     output_filename: str = "strike_avg_power_map.png",
     _export_fig=True,
     _range=None,
@@ -100,7 +101,8 @@ def plot_avg_power_map(
       events (pandas.DataFrame): DataFrame containing at least 'lat', 'lon', and 'power_db' columns.
       lat_bins (int): Number of bins for latitude. Defaults to 500.
       lon_bins (int): Number of bins for longitude. Defaults to 500.
-      sigma (float): Standard deviation for the Gaussian kernel applied for smoothing. Defaults to 2.0.
+      sigma (float): Standard deviation for the Gaussian kernel applied for smoothing. 1.0.
+      transparency_threshold (float): A number such that if the power_db is below this threshold, it becomes transparent. Set to -1 to disable
       output_filename (str): Filename for the output image. Defaults to "strike_avg_power_map.png".
 
     Returns:
@@ -141,6 +143,9 @@ def plot_avg_power_map(
     # Increase or decrease `sigma` depending on how much smoothing you want.
     blurred_stat = gaussian_filter(stat_filled, sigma=sigma)
 
+    # Remove areas below the transparency threshold by masking them as NaN.
+    blurred_stat = np.where(blurred_stat < transparency_threshold, np.nan, blurred_stat)
+
     # Compute bin centers for plotting.
     lat_centers = 0.5 * (lat_edges[:-1] + lat_edges[1:])
     lon_centers = 0.5 * (lon_edges[:-1] + lon_edges[1:])
@@ -160,11 +165,12 @@ def plot_avg_power_map(
         x=lon_centers,
         y=lat_centers,
         z=blurred_stat,
-        colorscale="Viridis",
+        colorscale="Hot",
         colorbar=dict(title="Average Power (dBW)"),
         zauto=_zauto,
         zmin = _bar_min,
-        zmax = _bar_max
+        zmax = _bar_max,
+        reversescale = True
     )
 
     # Build the figure with layout settings.
@@ -181,18 +187,19 @@ def plot_avg_power_map(
     if _export_fig:
         fig.write_image(output_filename, scale=3)
 
-    return fig, np.max(blurred_stat)
+    return fig, np.nanmax(blurred_stat)
 
 def generate_strike_gif(
     strike_indices: list[int],
     events: pd.DataFrame,
     lat_bins: int = 500,
     lon_bins: int = 500,
-    sigma: float = 2.0,
+    sigma: float = 1.0,
     num_frames: int = 30,
+    transparency_threshold: float = 0.01,
     output_filename: str = "strike_power_map_animation.gif",
     duration: float = 3000,
-    looped:bool = True
+    looped:bool = True,
 ) -> str:
     """
     Generate a GIF animation of a lightning strike heatmap evolving over a specified number of frames.
@@ -206,8 +213,9 @@ def generate_strike_gif(
       events (pd.DataFrame): DataFrame with at least 'lat', 'lon', 'power_db', and 'time_unix' columns.
       lat_bins (int): Number of bins for latitude. Defaults to 500.
       lon_bins (int): Number of bins for longitude. Defaults to 500.
-      sigma (float): Standard deviation for the Gaussian kernel used in smoothing. Defaults to 2.0.
+      sigma (float): Standard deviation for the Gaussian kernel used in smoothing. 1.0.
       num_frames (int): Number of frames in the resulting GIF. Defaults to 40.
+      transparency_threshold (float): A number such that if the power_db is below this threshold, it becomes transparent. Set to -1 to disable
       output_filename (str): Filename for the output GIF. Defaults to "lightning_strike_animation.gif".
       frame_duration (float): Duration (in milliseconds) for each frame in the GIF. Defaults to 3000 milliseconds.
       looped (bool): The gif will loop if set to True
@@ -247,6 +255,7 @@ def generate_strike_gif(
             sigma=sigma,
             _export_fig=False,
             _range=_range,
+            transparency_threshold=transparency_threshold
         )
 
     frames = []
@@ -264,9 +273,10 @@ def generate_strike_gif(
             lat_bins=lat_bins,
             lon_bins=lon_bins,
             sigma=sigma,
+            transparency_threshold=transparency_threshold,
             _export_fig=False,
             _range=_range,
-            _bar_range=[0, max_stat]
+            _bar_range=[0, max_stat],
         )
         
         # Convert the Plotly figure to an image.
@@ -302,7 +312,7 @@ def _plot_strike(args):
     Returns:
       None
     """
-    strike_indeces, events, strike_dir, as_gif = args
+    strike_indeces, events, strike_dir, as_gif, sigma, transparency_threshold = args
 
     # Get the start time
     start_time_unix = events.iloc[strike_indeces[0]]["time_unix"]
@@ -312,14 +322,14 @@ def _plot_strike(args):
 
     if not as_gif:
         output_filename = os.path.join(strike_dir, start_time_dt) + ".png"
-        plot_avg_power_map(strike_indeces, events, output_filename=output_filename)
+        plot_avg_power_map(strike_indeces, events, output_filename=output_filename, sigma=sigma, transparency_threshold=transparency_threshold)
     else:
         output_filename = os.path.join(strike_dir, start_time_dt) + ".gif"
-        generate_strike_gif(strike_indeces, events, output_filename=output_filename)
+        generate_strike_gif(strike_indeces, events, output_filename=output_filename, sigma=sigma, transparency_threshold=transparency_threshold)
 
 
 def plot_all_strikes(
-    bucketed_strike_indeces, events, strike_dir="strikes", num_cores=1, as_gif=False
+    bucketed_strike_indeces, events, strike_dir="strikes", num_cores=1, as_gif=False, sigma=1.0, transparency_threshold=0.01
 ):
     """
     Generate and save heatmaps for all detected lightning strikes using parallel processing.
@@ -332,13 +342,16 @@ def plot_all_strikes(
       events (pandas.DataFrame): DataFrame containing the lightning event data.
       strike_dir (str): Directory to save the generated heatmap images. Defaults to "strikes".
       num_cores (int): Number of worker processes to use for parallel processing. Defaults to 1.
-
+      as_gif (bool): Set to true to export as a gif instead
+      sigma (float): Standard deviation for the Gaussian kernel applied for smoothing. 1.0.
+      transparency_threshold (float): A number such that if the power_db is below this threshold, it becomes transparent. Set to -1 to disable
+            
     Returns:
       None
     """
     # Prepare the argument tuples for each strike
     args_list = [
-        (strike_indeces, events, strike_dir, as_gif)
+        (strike_indeces, events, strike_dir, as_gif, sigma, transparency_threshold)
         for strike_indeces in bucketed_strike_indeces
     ]
 

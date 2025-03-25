@@ -1,3 +1,5 @@
+# Run in background: python main.py > output.log 2>&1 & disown
+
 import os
 import database_parser
 import lightning_bucketer
@@ -146,7 +148,7 @@ params = {
     "max_lightning_dist": 15000,  # max distance between two points to determine it being involved in the same strike
     "max_lightning_speed": 299792.458,  # max speed between two points in m/s (essentially dx/dt)
     "min_lightning_speed": 0,  # min speed between two points in m/s (essentially dx/dt)
-    "min_lightning_points": 800,  # The minimum number of points to pass the system as a "lightning strike"
+    "min_lightning_points": 300,  # The minimum number of points to pass the system as a "lightning strike"
     "max_lightning_time_threshold": 0.5,  # max number of seconds between points 
     "max_lightning_duration": 20, # max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
 }
@@ -220,8 +222,23 @@ for i, strike in enumerate(bucketed_strikes_indeces_sorted):
  #
 ####################################################################################
 
+
+
 print("Plotting strike points over time")
 lightning_plotters.plot_strikes_over_time(bucketed_strikes_indeces_sorted, events)
+
+
+# Exporting most points
+print("Exporting largest instance")
+largest_strike = bucketed_strikes_indeces_sorted[0]
+lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename="most_pts.png")
+lightning_plotters.generate_strike_gif(largest_strike, events, output_filename="most_pts.gif")
+
+# Exporting strongest power
+print("Exporting the strongest power")
+strongest_power_strike = bucketed_strikes_indeces_sorted_by_power[0]
+lightning_plotters.plot_avg_power_map(strongest_power_strike, events, output_filename="strongest_power.png")
+lightning_plotters.generate_strike_gif(strongest_power_strike, events, output_filename="strongest_power.gif")
 
 print("Plotting all strikes into a readable heatmap.")
 strike_dir = "strikes"
@@ -234,24 +251,10 @@ if os.path.exists(strike_dir):
 
 os.makedirs(strike_dir, exist_ok=True)
 lightning_plotters.plot_all_strikes(
-    bucketed_strikes_indeces_sorted, events, strike_dir, NUM_CORES
+    bucketed_strikes_indeces_sorted, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1
 )
 
 lightning_plotters.plot_all_strikes(
-    bucketed_strikes_indeces_sorted, events, strike_dir, NUM_CORES, as_gif=True
+    bucketed_strikes_indeces_sorted, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1
 )
-
-
-print("Exporting largest instance on file")
-# Exporting most points
-largest_strike = bucketed_strikes_indeces_sorted[0]
-lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename="most_pts.png")
-lightning_plotters.generate_strike_gif(largest_strike, events, output_filename="most_pts.gif")
-
-# Exporting strongest power
-strongest_power_strike = bucketed_strikes_indeces_sorted_by_power[0]
-lightning_plotters.plot_avg_power_map(strongest_power_strike, events, output_filename="strongest_power.png")
-lightning_plotters.generate_strike_gif(strongest_power_strike, events, output_filename="strongest_power.gif")
-
-
 print("Finished generating plots")
