@@ -231,14 +231,14 @@ lightning_plotters.plot_strikes_over_time(bucketed_strikes_indeces_sorted, event
 # Exporting most points
 print("Exporting largest instance")
 largest_strike = bucketed_strikes_indeces_sorted[0]
-lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename="most_pts.png")
-lightning_plotters.generate_strike_gif(largest_strike, events, output_filename="most_pts.gif")
+lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename="most_pts.png", transparency_threshold=-1)
+lightning_plotters.generate_strike_gif(largest_strike, events, output_filename="most_pts.gif", transparency_threshold=-1)
 
 # Exporting strongest power
 print("Exporting the strongest power")
 strongest_power_strike = bucketed_strikes_indeces_sorted_by_power[0]
-lightning_plotters.plot_avg_power_map(strongest_power_strike, events, output_filename="strongest_power.png")
-lightning_plotters.generate_strike_gif(strongest_power_strike, events, output_filename="strongest_power.gif")
+lightning_plotters.plot_avg_power_map(strongest_power_strike, events, output_filename="strongest_power.png", transparency_threshold=-1)
+lightning_plotters.generate_strike_gif(strongest_power_strike, events, output_filename="strongest_power.gif", transparency_threshold=-1)
 
 print("Plotting all strikes into a readable heatmap.")
 strike_dir = "strikes"

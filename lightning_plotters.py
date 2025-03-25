@@ -165,12 +165,12 @@ def plot_avg_power_map(
         x=lon_centers,
         y=lat_centers,
         z=blurred_stat,
-        colorscale="Hot",
+        colorscale="ice",
         colorbar=dict(title="Average Power (dBW)"),
         zauto=_zauto,
         zmin = _bar_min,
         zmax = _bar_max,
-        reversescale = True
+        reversescale = False
     )
 
     # Build the figure with layout settings.
