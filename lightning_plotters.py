@@ -13,6 +13,92 @@ from io import BytesIO
 from PIL import Image
 import imageio
 import math
+import base64
+from PIL import Image, ImageSequence
+import io
+import re
+
+
+def create_interactive_html(gif_filename: str, html_filename: str, display_width: int = 400):
+    """
+    Reads a GIF file, extracts its frames, encodes them in Base64, and writes a self-contained
+    HTML file with an interactive slider to scroll through the frames.
+
+    Parameters:
+      gif_filename (str): Path to the input GIF file.
+      html_filename (str): Path to the output HTML file.
+      display_width (int): Width (in pixels) for the displayed image. Defaults to 400.
+
+    Returns:
+      None. Writes the HTML file to disk.
+    """
+    # Open the GIF file.
+    with Image.open(gif_filename) as img:
+        frames = []
+        # Iterate over all frames in the GIF.
+        for frame in ImageSequence.Iterator(img):
+            # Create an in-memory binary stream.
+            buffer = io.BytesIO()
+            # Save the current frame as a PNG to preserve quality.
+            frame.save(buffer, format="PNG")
+            # Encode the binary data to Base64.
+            base64_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            frames.append(f"data:image/png;base64,{base64_str}")
+
+    # Create HTML content with the pre-baked frames.
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Interactive GIF Viewer</title>
+  <style>
+    body {{
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      text-align: center;
+    }}
+    #frame-display {{
+      width: {display_width}px;
+      height: auto;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+    }}
+    #slider {{
+      width: {display_width}px;
+    }}
+  </style>
+</head>
+<body>
+  <img id="frame-display" src="{frames[0]}" alt="GIF Frame">
+  <br>
+  <input type="range" id="slider" min="0" max="{len(frames)-1}" value="0">
+  <script>
+    // Pre-baked frames array (Base64 encoded images).
+    const frames = {frames};
+    const slider = document.getElementById("slider");
+    const frameDisplay = document.getElementById("frame-display");
+
+    // Function to update the displayed frame.
+    function updateFrame(index) {{
+      frameDisplay.src = frames[index];
+    }}
+
+    // Initialize with the first frame.
+    updateFrame(0);
+
+    // Update frame when slider value changes.
+    slider.addEventListener("input", function(event) {{
+      updateFrame(event.target.value);
+    }});
+  </script>
+</body>
+</html>
+"""
+
+    # Write the HTML content to the specified file.
+    with open(html_filename, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    print(f"Interactive HTML file saved as {html_filename}")
 
 def plot_strikes_over_time(
     bucketed_strikes_indeces_sorted: list[list[int]],
@@ -295,7 +381,6 @@ def generate_strike_gif(
     imageio.mimsave(output_filename, frames, duration=frame_duration, loop=looped)
     return output_filename
 
-
 def _plot_strike(args):
     """
     Helper function to generate and save an average power heatmap for a single lightning strike.
@@ -320,11 +405,13 @@ def _plot_strike(args):
         start_time_unix, tz=datetime.timezone.utc
     ).strftime("%Y-%m-%d %H:%M:%S UTC")
 
+    safe_start_time = re.sub(r'[<>:"/\\|?*]', '_', str(start_time_dt))
+
     if not as_gif:
-        output_filename = os.path.join(strike_dir, start_time_dt) + ".png"
+        output_filename = os.path.join(strike_dir, f"{safe_start_time}.png")
         plot_avg_power_map(strike_indeces, events, output_filename=output_filename, sigma=sigma, transparency_threshold=transparency_threshold)
     else:
-        output_filename = os.path.join(strike_dir, start_time_dt) + ".gif"
+        output_filename = os.path.join(strike_dir, f"{safe_start_time}.gif")
         generate_strike_gif(strike_indeces, events, output_filename=output_filename, sigma=sigma, transparency_threshold=transparency_threshold)
 
 

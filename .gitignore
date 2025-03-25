@@ -7,3 +7,4 @@ result_cache.pkl
 strikes/
 output.log
 nohup.out
+log_dir/

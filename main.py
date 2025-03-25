@@ -64,7 +64,11 @@ dat_file_paths = database_parser.get_dat_files_paths(
 
 # The SQLite database file
 # (This file doesn't need to exist. Will auto-generate a new one)
-DB_PATH = "lylout_db.db"
+log_dir = "log_dir"
+os.makedirs(log_dir, exist_ok=True)
+
+DB_PATH = os.path.join(log_dir, "lylout_db.db")
+logger.LOG_FILE = os.path.join(log_dir, "file_log.json")
 
 # NOTE: If you want to delete the lightning database, delete "lylout_db.db"
 # and "file_log.json" if they exist in the Python project directory
@@ -223,24 +227,31 @@ for i, strike in enumerate(bucketed_strikes_indeces_sorted):
 ####################################################################################
 
 
+export_dir = "export"
+os.makedirs(export_dir, exist_ok=True)
 
+# Exporting a chart of strikes over time
 print("Plotting strike points over time")
-lightning_plotters.plot_strikes_over_time(bucketed_strikes_indeces_sorted, events)
-
+export_path = os.path.join(export_dir, "strike_pts_over_time")
+lightning_plotters.plot_strikes_over_time(bucketed_strikes_indeces_sorted, events, output_filename=export_path+".png")
 
 # Exporting most points
 print("Exporting largest instance")
 largest_strike = bucketed_strikes_indeces_sorted[0]
-lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename="most_pts.png", transparency_threshold=-1)
-lightning_plotters.generate_strike_gif(largest_strike, events, output_filename="most_pts.gif", transparency_threshold=-1)
+export_path = os.path.join(export_dir, "most_pts")
+lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename=export_path+".png", transparency_threshold=-1)
+lightning_plotters.generate_strike_gif(largest_strike, events, output_filename=export_path+".gif", transparency_threshold=-1)
+lightning_plotters.create_interactive_html(export_path+".gif", export_path+".html")
 
 # Exporting strongest power
 print("Exporting the strongest power")
 strongest_power_strike = bucketed_strikes_indeces_sorted_by_power[0]
-lightning_plotters.plot_avg_power_map(strongest_power_strike, events, output_filename="strongest_power.png", transparency_threshold=-1)
-lightning_plotters.generate_strike_gif(strongest_power_strike, events, output_filename="strongest_power.gif", transparency_threshold=-1)
-
+export_path = os.path.join(export_dir, "strongest_power")
+lightning_plotters.plot_avg_power_map(strongest_power_strike, events, output_filename=export_path+".png", transparency_threshold=-1)
+lightning_plotters.generate_strike_gif(strongest_power_strike, events, output_filename=export_path+".gif", transparency_threshold=-1)
+lightning_plotters.create_interactive_html(export_path+".gif", export_path+".html")
 print("Plotting all strikes into a readable heatmap.")
+
 strike_dir = "strikes"
 
 # Remove the strikes directory if it exists

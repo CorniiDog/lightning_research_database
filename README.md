@@ -1,6 +1,6 @@
 # Connor's Lightning Parser Program
 
-![avg_power_map](strike_avg_power_map.png)
+![most_pts](export/most_pts.gif)
 
 This library extracts LYLOUT data, store it into a lightning database, and processes millions of datapoints in the database to a reasonably fast and optimized speed. This project is meant to be a framework for applications to implement and parse data more appropriately.
 
@@ -56,30 +56,29 @@ end_time = datetime.datetime(
 
 # Build filter list for time_unix boundaries.
 filters = [
-    ("time_unix", ">=", start_time),
-    ("time_unix", "<=", end_time),
-    ("reduced_chi2", "<", 2.0),
-    ("num_stations", ">=", 7),
-    ("alt", "<=", 17000),  # 20 km = 20000m
+    ("time_unix", ">=", start_time),  # In unix
+    ("time_unix", "<=", end_time),  # In unix
+    ("reduced_chi2", "<", 2.0,),  # The chi^2 (reliability index) value to accept the data
+    ("num_stations", ">=", 7),  # Number of stations that have visibly seen the strike
+    ("alt", "<=", 18000),  # alt is in meters. Therefore 20 km = 20000m
     ("alt", ">", 0),  # Above ground
-    ("power_db", ">", -4),  # dBW
-    ("power_db", "<", 50),  # dBW
+    ("power_db", ">", -4),  # In dBW
+    ("power_db", "<", 50),  # In dBW
 ]
 ```
 
 3. Modify parameters
 ```py
 params = {
-    "max_lightning_dist": 50000,  # meters
-    "max_lightning_speed": 299792.458,  # m/s
-    "min_lightning_speed": 0,  # m/s
-    "min_lightning_points": 300,  # The minimum number of points to pass the minimum amount
-    "max_lightning_time_threshold": 0.15,  # seconds between points
+    "max_lightning_dist": 15000,  # max distance between two points to determine it being involved in the same strike
+    "max_lightning_speed": 299792.458,  # max speed between two points in m/s (essentially dx/dt)
+    "min_lightning_speed": 0,  # min speed between two points in m/s (essentially dx/dt)
+    "min_lightning_points": 300,  # The minimum number of points to pass the system as a "lightning strike"
+    "max_lightning_time_threshold": 0.5,  # max number of seconds between points 
+    "max_lightning_duration": 20, # max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
 }
 
-lightning_bucketer.USE_CACHE = (
-    True  # Generate cache of result to save time for future identical requests
-)
+lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
 ```
 
 4. Run with `python run main.py` and observe the new ".png" outputs and a "strikes" directory
