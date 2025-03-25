@@ -6,3 +6,4 @@ file_log.json
 result_cache.pkl
 strikes/
 output.log
+nohup.out
