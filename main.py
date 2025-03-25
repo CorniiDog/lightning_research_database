@@ -225,7 +225,18 @@ for i, strike in enumerate(bucketed_strikes_indeces_sorted):
   # Plotting and exporting
  #
 ####################################################################################
+print("Exporting CSV data")
 
+csv_dir = "strikes_csv_files"
+
+if os.path.exists(csv_dir):
+    shutil.rmtree(csv_dir)
+
+os.makedirs(csv_dir, exist_ok=True)
+
+lightning_bucketer.export_as_csv(bucketed_strikes_indeces_sorted, events, output_dir=csv_dir)
+
+print("Finished exporting as CSV")
 
 export_dir = "export"
 os.makedirs(export_dir, exist_ok=True)
@@ -269,3 +280,4 @@ lightning_plotters.plot_all_strikes(
     bucketed_strikes_indeces_sorted, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1
 )
 print("Finished generating plots")
+

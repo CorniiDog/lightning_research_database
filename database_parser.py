@@ -372,3 +372,5 @@ def parse_lylout(lylout_path: str, DB_PATH: str = "lylout_db.db"):
     """
     if lylout_path.lower().endswith(".dat"):
         _parse_dat_extension(lylout_path, DB_PATH)
+
+

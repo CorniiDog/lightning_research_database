@@ -14,7 +14,7 @@ import pandas as pd
 import pickle as pkl
 import os
 import hashlib
-
+import re
 
 def _bucket_dataframe_lightnings(
     df: pd.DataFrame,
@@ -307,3 +307,31 @@ def bucket_dataframe_lightnings(df: pd.DataFrame, **params) -> list[list[int]]:
     save_result_cache(df, params, result)
 
     return result
+
+
+def export_as_csv(bucketed_strike_indeces: list[list[int]], events: pd.DataFrame, output_dir):
+    # Ensure the output directory exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for indices in bucketed_strike_indeces:
+        # Extract the events corresponding to this lightning strike and sort by time
+        strike_df = events.iloc[indices].sort_values(by="time_unix")
+        
+        # Convert the first event's time to a datetime object for a meaningful file name
+        start_time_unix = strike_df.iloc[0]["time_unix"]
+        start_time_dt = pd.to_datetime(start_time_unix, unit="s")
+        
+        # Generate a safe file name using regex to remove forbidden characters
+        safe_start_time = re.sub(r'[<>:"/\\|?*]', '_', str(start_time_dt))
+        
+        # Construct the output file path and ensure unique names if needed
+        output_filename = os.path.join(output_dir, f"{safe_start_time}.csv")
+        counter = 1
+        while os.path.exists(output_filename):
+            output_filename = os.path.join(output_dir, f"{safe_start_time}_{counter}.csv")
+            counter += 1
+        
+        # Export the lightning strike data to CSV without the DataFrame index
+        strike_df.to_csv(output_filename, index=False)
+        print(f"Exported lightning strike CSV to {output_filename}")

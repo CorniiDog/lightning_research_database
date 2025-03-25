@@ -8,3 +8,4 @@ strikes/
 output.log
 nohup.out
 log_dir/
+strikes_csv_files/
