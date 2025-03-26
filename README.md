@@ -74,7 +74,7 @@ params = {
     "max_lightning_speed": 299792.458,  # max speed between two points in m/s (essentially dx/dt)
     "min_lightning_speed": 0,  # min speed between two points in m/s (essentially dx/dt)
     "min_lightning_points": 300,  # The minimum number of points to pass the system as a "lightning strike"
-    "max_lightning_time_threshold": 0.5,  # max number of seconds between points 
+    "max_lightning_time_threshold": 0.08,  # max number of seconds between points 
     "max_lightning_duration": 20, # max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
 }
 

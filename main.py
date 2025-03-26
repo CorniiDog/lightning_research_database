@@ -116,10 +116,10 @@ print("Headers:", database_parser.get_headers(DB_PATH))
 ####################################################################################
 
 start_time = datetime.datetime(
-    2022, 7, 12, 0, 0, tzinfo=datetime.timezone.utc
+    2022, 7, 13, 0, 0, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 end_time = datetime.datetime(
-    2022, 7, 12, 23, 0, tzinfo=datetime.timezone.utc
+    2022, 7, 13, 23, 0, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 
 # Build filter list for time_unix boundaries.
@@ -153,7 +153,7 @@ params = {
     "max_lightning_speed": 299792.458,  # max speed between two points in m/s (essentially dx/dt)
     "min_lightning_speed": 0,  # min speed between two points in m/s (essentially dx/dt)
     "min_lightning_points": 300,  # The minimum number of points to pass the system as a "lightning strike"
-    "max_lightning_time_threshold": 0.5,  # max number of seconds between points 
+    "max_lightning_time_threshold": 0.08,  # max number of seconds between points 
     "max_lightning_duration": 20, # max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
 }
 
