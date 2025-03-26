@@ -17,6 +17,7 @@ import base64
 from PIL import Image, ImageSequence
 import io
 import re
+from typing import Tuple
 
 
 def create_interactive_html(gif_filename: str, html_filename: str, display_width: int = 400):
@@ -101,7 +102,7 @@ def create_interactive_html(gif_filename: str, html_filename: str, display_width
     print(f"Interactive HTML file saved as {html_filename}")
 
 def plot_strikes_over_time(
-    bucketed_strikes_indeces_sorted: list[list[int]],
+    bucketed_strikes_indices_sorted: list[list[int]],
     events: pd.DataFrame,
     output_filename="strike_points_over_time.png",
     _export_fig=True
@@ -114,7 +115,7 @@ def plot_strikes_over_time(
     connecting the points using Plotly, and finally saves the plot to a specified file.
 
     Parameters:
-      bucketed_strikes_indeces_sorted (list of list of int): Sorted list of lightning strike indices,
+      bucketed_strikes_indices_sorted (list of list of int): Sorted list of lightning strike indices,
                                                              where each sublist corresponds to a strike.
       events (pandas.DataFrame): DataFrame containing lightning event data, including a 'time_unix' column.
       output_filename (str): The filename to save the resulting plot. Defaults to "strike_points_over_time.png".
@@ -124,7 +125,7 @@ def plot_strikes_over_time(
     """
     # Prepare data: For each bucket, extract the start time (as a timezone-aware datetime) and the number of strike points.
     plot_data = []
-    for strike in bucketed_strikes_indeces_sorted:
+    for strike in bucketed_strikes_indices_sorted:
         start_time_unix = events.iloc[strike[0]]["time_unix"]
         dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
         plot_data.append({"Time": dt, "Strike Points": len(strike)})
@@ -165,7 +166,7 @@ def plot_strikes_over_time(
 
 
 def plot_avg_power_map(
-    strike_indeces: list[int],
+    strike_indices: list[int],
     events: pd.DataFrame,
     lat_bins: int = 500,
     lon_bins: int = 500,
@@ -183,7 +184,7 @@ def plot_avg_power_map(
     It then applies a Gaussian blur to smooth the binned data and creates a heatmap using Plotly.
 
     Parameters:
-      strike_indeces (list of int): List of indices corresponding to rows in the 'events' DataFrame for a specific strike.
+      strike_indices (list of int): List of indices corresponding to rows in the 'events' DataFrame for a specific strike.
       events (pandas.DataFrame): DataFrame containing at least 'lat', 'lon', and 'power_db' columns.
       lat_bins (int): Number of bins for latitude. Defaults to 500.
       lon_bins (int): Number of bins for longitude. Defaults to 500.
@@ -195,7 +196,7 @@ def plot_avg_power_map(
       str: The output filename where the heatmap image is saved.
     """
 
-    strike_events = events.iloc[strike_indeces]
+    strike_events = events.iloc[strike_indices]
 
     # Get the strike's start time from the first event.
     start_time_unix = strike_events.iloc[-1]["time_unix"]
@@ -390,17 +391,17 @@ def _plot_strike(args):
 
     Parameters:
       args (tuple): A tuple containing:
-          - strike_indeces (list of int): List of indices representing a lightning strike.
+          - strike_indices (list of int): List of indices representing a lightning strike.
           - events (pandas.DataFrame): DataFrame containing the lightning event data.
           - strike_dir (str): Directory where the heatmap image should be saved.
 
     Returns:
       None
     """
-    strike_indeces, events, strike_dir, as_gif, sigma, transparency_threshold = args
+    strike_indices, events, strike_dir, as_gif, sigma, transparency_threshold = args
 
     # Get the start time
-    start_time_unix = events.iloc[strike_indeces[0]]["time_unix"]
+    start_time_unix = events.iloc[strike_indices[0]]["time_unix"]
     start_time_dt = datetime.datetime.fromtimestamp(
         start_time_unix, tz=datetime.timezone.utc
     ).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -409,14 +410,14 @@ def _plot_strike(args):
 
     if not as_gif:
         output_filename = os.path.join(strike_dir, f"{safe_start_time}.png")
-        plot_avg_power_map(strike_indeces, events, output_filename=output_filename, sigma=sigma, transparency_threshold=transparency_threshold)
+        plot_avg_power_map(strike_indices, events, output_filename=output_filename, sigma=sigma, transparency_threshold=transparency_threshold)
     else:
         output_filename = os.path.join(strike_dir, f"{safe_start_time}.gif")
-        generate_strike_gif(strike_indeces, events, output_filename=output_filename, sigma=sigma, transparency_threshold=transparency_threshold)
+        generate_strike_gif(strike_indices, events, output_filename=output_filename, sigma=sigma, transparency_threshold=transparency_threshold)
 
 
 def plot_all_strikes(
-    bucketed_strike_indeces, events, strike_dir="strikes", num_cores=1, as_gif=False, sigma=1.0, transparency_threshold=0.01
+    bucketed_strike_indices, events, strike_dir="strikes", num_cores=1, as_gif=False, sigma=1.0, transparency_threshold=0.01
 ):
     """
     Generate and save heatmaps for all detected lightning strikes using parallel processing.
@@ -425,7 +426,7 @@ def plot_all_strikes(
     to generate average power heatmaps concurrently. A progress bar is displayed to indicate processing status.
 
     Parameters:
-      bucketed_strike_indeces (list of list of int): List where each sublist contains indices corresponding to a lightning strike.
+      bucketed_strike_indices (list of list of int): List where each sublist contains indices corresponding to a lightning strike.
       events (pandas.DataFrame): DataFrame containing the lightning event data.
       strike_dir (str): Directory to save the generated heatmap images. Defaults to "strikes".
       num_cores (int): Number of worker processes to use for parallel processing. Defaults to 1.
@@ -438,8 +439,8 @@ def plot_all_strikes(
     """
     # Prepare the argument tuples for each strike
     args_list = [
-        (strike_indeces, events, strike_dir, as_gif, sigma, transparency_threshold)
-        for strike_indeces in bucketed_strike_indeces
+        (strike_indices, events, strike_dir, as_gif, sigma, transparency_threshold)
+        for strike_indices in bucketed_strike_indices
     ]
 
     # Use a pool of worker processes to parallelize
@@ -447,3 +448,89 @@ def plot_all_strikes(
         # Use imap so that we can attach tqdm for a progress bar
         for _ in tqdm(pool.imap(_plot_strike, args_list), total=len(args_list)):
             pass
+
+
+def plot_lightning_stitch(
+    lightning_correlations: list[Tuple[int, int]], 
+    events: pd.DataFrame,
+    output_filename: str = "strike_stitched_map.png",
+    _export_fig: bool = True,
+) -> go.Figure:
+    """
+    Plot the stitched lightning correlations on a 2D scatter plot using latitude and longitude.
+
+    Parameters:
+      lightning_correlations (list[Tuple[int, int]]): List of tuples (parent_index, child_index)
+      events (pd.DataFrame): DataFrame containing event data with "lat" and "lon" columns.
+      output_filename (str): Filename to export the plot image. Defaults to "strike_stitched_map.png".
+      _export_fig (bool): If True, export the figure as an image.
+
+    Returns:
+      go.Figure: The Plotly figure containing the lightning stitch plot.
+    """
+
+    # Get the start time
+    start_time_unix = events.iloc[lightning_correlations[-1][-1]]["time_unix"]
+    start_time_dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
+    frac = int(start_time_dt.microsecond / 10000)  # Convert microseconds to hundredths (0-99)
+    start_time_dt = start_time_dt.strftime(f"%Y-%m-%d %H:%M:%S.{frac:02d} UTC")
+
+    # Prepare lists for line segments; insert None to separate individual segments.
+    lines_x = []
+    lines_y = []
+    for parent_idx, child_idx in lightning_correlations:
+        parent_row = events.loc[parent_idx]
+        child_row = events.loc[child_idx]
+        # Use latitude for x and longitude for y
+        x1, y1 = parent_row["lon"], parent_row["lat"]
+        x2, y2 = child_row["lon"], child_row["lat"]
+        lines_x.extend([x1, x2, None])
+        lines_y.extend([y1, y2, None])
+    
+    # Create a scatter trace for the correlation lines.
+    line_trace = go.Scatter(
+        x=lines_x,
+        y=lines_y,
+        mode="lines",
+        line=dict(color="blue", width=2),
+        name="Lightning Stitch"
+    )
+
+    # Gather unique indices for lightning strikes.
+    unique_indices = set()
+    for parent_idx, child_idx in lightning_correlations:
+        unique_indices.add(parent_idx)
+        unique_indices.add(child_idx)
+    
+    # Extract coordinates for the strike points.
+    points_x = []
+    points_y = []
+    for idx in unique_indices:
+        row = events.loc[idx]
+        points_x.append(row["lon"])
+        points_y.append(row["lat"])
+    
+    # Create a scatter trace for the strike points.
+    points_trace = go.Scatter(
+        x=points_x,
+        y=points_y,
+        mode="markers",
+        marker=dict(color="red", size=3),
+        name="Lightning Strikes"
+    )
+    
+    # Build the figure.
+    fig = go.Figure(data=[line_trace, points_trace])
+    fig.update_layout(
+        title=f"Lightning Strike Stitching ({start_time_dt})",
+        xaxis=dict(title="Longitude", showgrid=True, gridcolor="lightgray"),
+        yaxis=dict(title="Latitude", showgrid=True, gridcolor="lightgray"),
+        template="plotly_white",
+        margin=dict(l=50, r=50, t=80, b=50)
+    )
+    
+    # Export the figure to a file if requested.
+    if _export_fig:
+        fig.write_image(output_filename, scale=3)
+    
+    return fig

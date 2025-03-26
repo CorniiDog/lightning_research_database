@@ -1,0 +1,108 @@
+import pandas as pd
+import cupy as cp
+from collections import deque
+from typing import Tuple
+
+
+def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **params) -> list[Tuple[(int, int)]]:
+    """
+    Builds a chain of lightning strike nodes by connecting each strike to the closest preceding strike,
+    but only if the connection satisfies thresholds on time, distance, and speed.
+    
+    Parameters:
+        strike_indeces (list[int]): List of indices corresponding to lightning strike events.
+        events (pd.DataFrame): DataFrame containing event data with columns like "time_unix", "x", "y", and "z".
+        **params: Additional filtering parameters:
+            max_lightning_time_threshold (float): Maximum allowed time difference between consecutive points (seconds). Default is 1.
+            max_lightning_dist (float): Maximum allowed distance between consecutive points (meters). Default is 50000.
+            max_lightning_speed (float): Maximum allowed speed (m/s). Default is 299792.458.
+            min_lightning_speed (float): Minimum allowed speed (m/s). Default is 0.
+    
+    Returns:
+        Correlations (list[Tuple[(int, int)]]): A list of correlations between indices
+    """
+    # Retrieve filtering parameters.
+    max_time_threshold = params.get("max_lightning_time_threshold", 1)
+    max_dist_between_pts = params.get("max_lightning_dist", 50000)
+    max_speed = params.get("max_lightning_speed", 299792.458)
+    min_speed = params.get("min_lightning_speed", 0)
+
+
+    # Sort the strike indices chronologically (using "time_unix").
+    strike_indeces: list[int] = sorted(strike_indeces, key=lambda idx: events.loc[idx, "time_unix"])
+    
+    # Create a Series DataFrame for only the selected strikes.
+    strike_series_df: pd.Series = events.iloc[strike_indeces]
+
+    # List to store nodes corresponding to each strike.
+    parsed_indices: list[int] = []
+    correlations: list[Tuple[(int, int)]] = []
+
+    for i in range(len(strike_indeces)):
+        current_indice = strike_indeces[i]
+
+        if len(parsed_indices) > 0:
+            # Get the current strike's coordinates and time.
+            data_row = strike_series_df.iloc[i]
+            x1, y1, z1 = data_row["x"], data_row["y"], data_row["z"]
+            current_time = data_row["time_unix"]
+            
+            # Retrieve all preceding strike events.
+            preceding_rows = strike_series_df.iloc[:i]
+
+            x_pre = cp.array(preceding_rows["x"].values)
+            y_pre = cp.array(preceding_rows["y"].values)
+            z_pre = cp.array(preceding_rows["z"].values)
+            times_pre = cp.array(preceding_rows["time_unix"].values)
+            current_coords = cp.array([x1, y1, z1])
+
+            # Compute Euclidean distances between the current strike and each candidate.
+            distances = cp.sqrt((x_pre - current_coords[0])**2 +
+                                (y_pre - current_coords[1])**2 +
+                                (z_pre - current_coords[2])**2)
+            # Compute time differences (seconds).
+            dt = current_time - times_pre  # cupy array of time differences.
+            dt = cp.where(dt == 0, 1e-6, dt)
+
+            # Compute speeds (m/s).
+            speeds = distances / dt
+
+            # Create a mask for candidates that satisfy all filtering thresholds.
+            mask = (dt <= max_time_threshold) & (distances <= max_dist_between_pts) & \
+                   (speeds <= max_speed) & (speeds >= min_speed)
+            valid_indices = cp.where(mask)[0]
+
+            if valid_indices.size > 0:
+                # Select the candidate with the minimum distance among those valid.
+                valid_distances = distances[valid_indices]
+                min_valid_idx = int(cp.argmin(valid_distances).get())
+                candidate_idx = int(valid_indices[min_valid_idx].get())
+                parent_indice = parsed_indices[candidate_idx]
+
+                correlations.append((parent_indice, current_indice))
+
+        # Save the current node.
+        parsed_indices.append(current_indice)
+
+
+    return correlations
+
+
+def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: pd.DataFrame, **params) -> list[list[Tuple[(int, int)]]]:
+    """
+    Processes multiple groups (buckets) of lightning strike indices, stitching each group individually.
+    
+    Parameters:
+        bucketed_strike_indices (list[list[int]]): A list where each element is a list of strike indices representing a group.
+        events (pd.DataFrame): DataFrame containing event data.
+        **params: Additional parameters passed to stitch_lightning_strike.
+    
+    Returns:
+        List of Correlations (list[list[Tuple[(int, int)]]]): A list of correlations between indices
+    """
+    bucketed_nodes = []
+    for strike_indices in bucketed_strike_indices:
+        node = stitch_lightning_strike(strike_indices, events, **params)
+        bucketed_nodes.append(node)
+        print(f"Processed {len(strike_indices)} indices")
+    return bucketed_nodes

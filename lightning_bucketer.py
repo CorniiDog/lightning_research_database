@@ -277,7 +277,7 @@ def bucket_dataframe_lightnings(df: pd.DataFrame, **params) -> list[list[int]]:
       - min_lightning_speed (float): Minimum allowed speed (m/s).
       - min_lightning_points (int): Minimum number of points required to qualify as a lightning strike.
       - max_lightning_time_threshold (float): Maximum allowed time difference between consecutive points (seconds).
-
+      - max_lightning_duration (float): Max time allowed for a "lightning strike" window as a whole (seconds). (Lightning world record is roughly 18s)
     Parameters:
       df (pandas.DataFrame): DataFrame containing lightning event data with required headers.
       **params: Additional keyword arguments for controlling bucketing behavior.
@@ -292,8 +292,6 @@ def bucket_dataframe_lightnings(df: pd.DataFrame, **params) -> list[list[int]]:
             print("Using cached result from earlier")
             return result
         
-    print(params.get("min_lightning_points", 300))
-
     result = _bucket_dataframe_lightnings(
         df,
         max_time_threshold=params.get("max_lightning_time_threshold", 1),
@@ -309,12 +307,12 @@ def bucket_dataframe_lightnings(df: pd.DataFrame, **params) -> list[list[int]]:
     return result
 
 
-def export_as_csv(bucketed_strike_indeces: list[list[int]], events: pd.DataFrame, output_dir):
+def export_as_csv(bucketed_strike_indices: list[list[int]], events: pd.DataFrame, output_dir):
     # Ensure the output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    for indices in bucketed_strike_indeces:
+    for indices in bucketed_strike_indices:
         # Extract the events corresponding to this lightning strike and sort by time
         strike_df = events.iloc[indices].sort_values(by="time_unix")
         

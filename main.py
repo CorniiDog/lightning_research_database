@@ -4,10 +4,13 @@ import os
 import database_parser
 import lightning_bucketer
 import lightning_plotters
+import lightning_stitcher
 import logger
 import datetime
 import shutil
 import time
+import sys
+
 
 ####################################################################################
  #
@@ -26,7 +29,7 @@ filter criteria.
 
 3. Afterwards, with user-specified parameters, the lightning_bucketer processes 
 all of the "events" data to return a list of lightning strikes, which each 
-lightning strike is simply a list of indeces for the "events" DataFrame
+lightning strike is simply a list of indices for the "events" DataFrame
 (a list of lists).
 
 4. You can use the events with the lightning strikes data to plot data or analyze 
@@ -168,62 +171,77 @@ lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for
 # lightning_bucketer.delete_result_cache()
 # ```
 
-# The parameters above will be passed to return bucketed_strikes_indeces, defined by type list[list[int]]
+# The parameters above will be passed to return bucketed_strikes_indices, defined by type list[list[int]]
 # which is a list of all lightning stikes, such that each lightning strike is a list of all indexes
-bucketed_strikes_indeces = lightning_bucketer.bucket_dataframe_lightnings(
+bucketed_strikes_indices = lightning_bucketer.bucket_dataframe_lightnings(
     events, **params
 )
 # Example: To get a Pandas DataFrame of the first strike in the list, you do:
 # ```
-# first_strikes = events.iloc[bucketed_strikes_indeces[0]]
+# first_strikes = events.iloc[bucketed_strikes_indices[0]]
 # ```
 #
 # Example 2: Iterating through all lightning strikes:
 # ```
-# for i in range(len(bucketed_strikes_indeces)):
-#   sub_strike = events.iloc[bucketed_strikes_indeces[i]]
+# for i in range(len(bucketed_strikes_indices)):
+#   sub_strike = events.iloc[bucketed_strikes_indices[i]]
 #   # Process the dataframe however you please of the designated lightning strike
 # ```
 
 
 # Sort the bucketed strikes indices by the length of each sublist in descending order.
 # (Strikes with most points first)
-bucketed_strikes_indeces_sorted = sorted(
-    bucketed_strikes_indeces, key=len, reverse=True
+bucketed_strikes_indices_sorted = sorted(
+    bucketed_strikes_indices, key=len, reverse=True
 )
 # Example: To get a Pandas DataFrame of the first strike in the list, you do:
 # ```
-# first_strikes = events.iloc[bucketed_strikes_indeces_sorted[0]]
+# first_strikes = events.iloc[bucketed_strikes_indices_sorted[0]]
 # ```
 #
 # Example 2: Iterating through all lightning strikes:
 # ```
-# for i in range(len(bucketed_strikes_indeces_sorted)):
-#   sub_strike = events.iloc[bucketed_strikes_indeces_sorted[i]]
+# for i in range(len(bucketed_strikes_indices_sorted)):
+#   sub_strike = events.iloc[bucketed_strikes_indices_sorted[i]]
 #   # Process the dataframe however you please of the designated lightning strike
 # ```
 
 # Sort the bucketed strikes indices by strongest power.
 # Here, for each strike, we compute the maximum 'power' value from the corresponding events,
 # and sort in descending order so that the strike with the highest power comes first.
-bucketed_strikes_indeces_sorted_by_power = sorted(
-    bucketed_strikes_indeces,
+bucketed_strikes_indices_sorted_by_power = sorted(
+    bucketed_strikes_indices,
     key=lambda strike: events.loc[strike, "power"].max(),
     reverse=True
 )
 
-print(f"Number of strikes matching criteria: {len(bucketed_strikes_indeces_sorted)}")
+print(f"Number of strikes matching criteria: {len(bucketed_strikes_indices_sorted)}")
 
 # Stop the program if the data is too restrained
-if len(bucketed_strikes_indeces_sorted) == 0:
+if len(bucketed_strikes_indices_sorted) == 0:
     print("Data too restrained.")
     exit()
 
 # Print each bucket with its length to terminal
-for i, strike in enumerate(bucketed_strikes_indeces_sorted):
+for i, strike in enumerate(bucketed_strikes_indices_sorted):
     start_time_unix = events.iloc[strike[0]]["time_unix"]
     print(f"Bucket {i}: Length = {len(strike)}: Time = {start_time_unix}")
 
+
+print("Stitching together lightning strikes")
+bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted, events, **params)
+
+print("Printing hiearchy")
+
+for lightning_correlations in bucketed_lightning_correlations:
+    print(lightning_correlations)
+
+print("Creating plot of the first stitch")
+lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations[0], events, "test_stitch.png")
+
+exit()
+
+print("Created buckets of nodes that resemble a lightning strike")
 ####################################################################################
  #
   # Plotting and exporting
@@ -238,7 +256,7 @@ if os.path.exists(csv_dir):
 
 os.makedirs(csv_dir, exist_ok=True)
 
-lightning_bucketer.export_as_csv(bucketed_strikes_indeces_sorted, events, output_dir=csv_dir)
+lightning_bucketer.export_as_csv(bucketed_strikes_indices_sorted, events, output_dir=csv_dir)
 
 print("Finished exporting as CSV")
 
@@ -248,11 +266,11 @@ os.makedirs(export_dir, exist_ok=True)
 # Exporting a chart of strikes over time
 print("Plotting strike points over time")
 export_path = os.path.join(export_dir, "strike_pts_over_time")
-lightning_plotters.plot_strikes_over_time(bucketed_strikes_indeces_sorted, events, output_filename=export_path+".png")
+lightning_plotters.plot_strikes_over_time(bucketed_strikes_indices_sorted, events, output_filename=export_path+".png")
 
 # Exporting most points
 print("Exporting largest instance")
-largest_strike = bucketed_strikes_indeces_sorted[0]
+largest_strike = bucketed_strikes_indices_sorted[0]
 export_path = os.path.join(export_dir, "most_pts")
 lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename=export_path+".png", transparency_threshold=-1)
 lightning_plotters.generate_strike_gif(largest_strike, events, output_filename=export_path+".gif", transparency_threshold=-1)
@@ -260,7 +278,7 @@ lightning_plotters.create_interactive_html(export_path+".gif", export_path+".htm
 
 # Exporting strongest power
 print("Exporting the strongest power")
-strongest_power_strike = bucketed_strikes_indeces_sorted_by_power[0]
+strongest_power_strike = bucketed_strikes_indices_sorted_by_power[0]
 export_path = os.path.join(export_dir, "strongest_power")
 lightning_plotters.plot_avg_power_map(strongest_power_strike, events, output_filename=export_path+".png", transparency_threshold=-1)
 lightning_plotters.generate_strike_gif(strongest_power_strike, events, output_filename=export_path+".gif", transparency_threshold=-1)
@@ -277,11 +295,11 @@ if os.path.exists(strike_dir):
 
 os.makedirs(strike_dir, exist_ok=True)
 lightning_plotters.plot_all_strikes(
-    bucketed_strikes_indeces_sorted, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1
+    bucketed_strikes_indices_sorted, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1
 )
 
 lightning_plotters.plot_all_strikes(
-    bucketed_strikes_indeces_sorted, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1
+    bucketed_strikes_indices_sorted, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1
 )
 print("Finished generating plots")
 
