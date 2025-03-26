@@ -7,6 +7,7 @@ import lightning_plotters
 import logger
 import datetime
 import shutil
+import time
 
 ####################################################################################
  #
@@ -41,6 +42,9 @@ Look at README.md for further details on how to install prerequisited and also r
 the file.
 """
 ####################################################################################
+
+# Mark process tart time
+process_start_time = time.time()
 
 # For certain situations, the program may use multiple CPU's to speed up the processing.
 # You can designate a percentage, or explicitly define in num_cores
@@ -281,3 +285,6 @@ lightning_plotters.plot_all_strikes(
 )
 print("Finished generating plots")
 
+
+process_time = time.time() - process_start_time
+print(f"Process time: {process_time:.2f} seconds.")
