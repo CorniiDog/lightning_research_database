@@ -71,11 +71,11 @@ dat_file_paths = database_parser.get_dat_files_paths(
 
 # The SQLite database file
 # (This file doesn't need to exist. Will auto-generate a new one)
-log_dir = "log_dir"
-os.makedirs(log_dir, exist_ok=True)
+cache_dir = "cache_dir"
+os.makedirs(cache_dir, exist_ok=True)
 
-DB_PATH = os.path.join(log_dir, "lylout_db.db")
-logger.LOG_FILE = os.path.join(log_dir, "file_log.json")
+DB_PATH = os.path.join(cache_dir, "lylout_db.db")
+logger.LOG_FILE = os.path.join(cache_dir, "file_log.json")
 
 # NOTE: If you want to delete the lightning database, delete "lylout_db.db"
 # and "file_log.json" if they exist in the Python project directory
@@ -165,7 +165,7 @@ params = {
 }
 
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
-
+lightning_bucketer.RESULT_CACHE_FILE = os.path.join(cache_dir, "result_cache.pkl")
 # To delete the cache of all of the save data (as it accumulates over time), run:
 # ```
 # lightning_bucketer.delete_result_cache()
@@ -207,11 +207,11 @@ bucketed_strikes_indices_sorted = sorted(
 # ```
 
 # Sort the bucketed strikes indices by strongest power.
-# Here, for each strike, we compute the maximum 'power' value from the corresponding events,
+# Here, for each strike, we compute the average 'power' value from the corresponding events,
 # and sort in descending order so that the strike with the highest power comes first.
 bucketed_strikes_indices_sorted_by_power = sorted(
     bucketed_strikes_indices,
-    key=lambda strike: events.loc[strike, "power"].max(),
+    key=lambda strike: events.loc[strike, "power"].mean(),
     reverse=True
 )
 
@@ -220,7 +220,6 @@ print(f"Number of strikes matching criteria: {len(bucketed_strikes_indices_sorte
 # Stop the program if the data is too restrained
 if len(bucketed_strikes_indices_sorted) == 0:
     print("Data too restrained.")
-    exit()
 
 # Print each bucket with its length to terminal
 for i, strike in enumerate(bucketed_strikes_indices_sorted):
@@ -231,15 +230,8 @@ for i, strike in enumerate(bucketed_strikes_indices_sorted):
 print("Stitching together lightning strikes")
 bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted, events, **params)
 
-print("Printing hiearchy")
-
-for lightning_correlations in bucketed_lightning_correlations:
-    print(lightning_correlations)
-
 print("Creating plot of the first stitch")
 lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations[0], events, "test_stitch.png")
-
-exit()
 
 print("Created buckets of nodes that resemble a lightning strike")
 ####################################################################################

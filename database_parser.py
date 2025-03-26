@@ -3,7 +3,9 @@ import datetime
 import sqlite3
 from pyproj import Transformer
 import pandas as pd
-
+from typing import Dict, Tuple
+import sys
+import traceback
 
 def get_dat_files_paths(lightning_data_folder, data_extension):
     """
@@ -183,7 +185,7 @@ def _build_where_clause(filters):
                 params.append(val)
             else:
                 raise ValueError(
-                    "Filters must be tuples (column, operator, value) or dicts."
+                    f"Filters must be tuples (column, operator, value) or dicts. {filt}, {type(filt)}"
                 )
     else:
         raise ValueError("Filters must be either a dict or a list.")
@@ -271,24 +273,6 @@ def _parse_dat_extension(lylout_path: str, DB_PATH: str = "lylout_db.db"):
     with open(lylout_path, "r") as f:
         lines = f.readlines()
 
-    # Check for an optional station mask order override in the header
-    station_mask_order = DEFAULT_STATION_MASK_ORDER
-    for line in lines:
-        if line.startswith("Station mask order:"):
-            station_mask_order = line.split("Station mask order:")[1].strip()
-            break
-
-    # Extract the base date from header (format: "Data start time: MM/DD/YY HH:MM:SS")
-    base_date = None
-    for line in lines:
-        if line.startswith("Data start time:"):
-            parts = line.split("Data start time:")[1].strip()
-            base_date = datetime.datetime.strptime(parts, "%m/%d/%y %H:%M:%S")
-            base_date = base_date.replace(tzinfo=datetime.timezone.utc)
-            break
-    if base_date is None:
-        raise Exception("Base date not found in header.")
-
     # Find the beginning of data
     data_start_index = None
     for i, line in enumerate(lines):
@@ -297,6 +281,50 @@ def _parse_dat_extension(lylout_path: str, DB_PATH: str = "lylout_db.db"):
             break
     if data_start_index is None:
         raise Exception("Data section not found.")
+
+    # Check for an optional station mask order override in the header
+    station_mask_order = DEFAULT_STATION_MASK_ORDER
+    for i, line in enumerate(lines):
+        if i >= data_start_index:
+            break
+        if line.startswith("Station mask order:"):
+            station_mask_order = line.split("Station mask order:")[1].strip()
+            break
+
+    # Extract the base date from header (format: "Data start time: MM/DD/YY HH:MM:SS")
+    base_date = None
+    for i, line in enumerate(lines):
+        if i >= data_start_index:
+            break
+        if line.startswith("Data start time:"):
+            parts_date = line.split("Data start time:")[1].strip()
+            base_date = datetime.datetime.strptime(parts_date, "%m/%d/%y %H:%M:%S")
+            base_date = base_date.replace(tzinfo=datetime.timezone.utc)
+            break
+    if base_date is None:
+        raise Exception("Base date not found in header.")
+
+    # Detect header order from a "Data:" line, if present
+    header_order = None
+    for i, line in enumerate(lines):
+        if i >= data_start_index:
+            break
+        if line.strip().startswith("Data:"):
+            header_line = line.strip()[len("Data:"):].strip()
+            header_order = [h.strip() for h in header_line.split(",")]
+            break
+    # Fallback default header order matching required fields and expected positions
+    if header_order is None:
+        header_order = [
+            "time (UT sec of day)",
+            "lat",
+            "lon",
+            "alt(m)",
+            "reduced chi^2",
+            "P(dBW)",
+            "mask",
+        ]
+    header_indices = {name: idx for idx, name in enumerate(header_order)}
 
     # Create the database and events table if they don't exist
     conn = _create_database_if_not_exist(DB_PATH)
@@ -307,23 +335,18 @@ def _parse_dat_extension(lylout_path: str, DB_PATH: str = "lylout_db.db"):
         if not line.strip():
             continue
         parts = line.split()
-        if len(parts) < 8:
+        if len(parts) < len(header_order):
             continue  # Skip incomplete lines
-
-        # Parse fields from the line
-        ut_sec = float(parts[0])
-        lat = float(parts[1])
-        lon = float(parts[2])
-        alt = float(parts[3])
-        reduced_chi2 = float(parts[4])
-        num_stations = int(parts[5])
-
-        # The power value in the file is in dBW.
-        power_db = float(parts[6])
-        # Convert dBW to linear watts: P (watts) = 10^(dBW/10)
-        power = 10 ** (power_db / 10)
-
-        mask_str = parts[7]
+        try:
+            ut_sec = float(parts[header_indices["time (UT sec of day)"]])
+            lat = float(parts[header_indices["lat"]])
+            lon = float(parts[header_indices["lon"]])
+            alt = float(parts[header_indices["alt(m)"]])
+            reduced_chi2 = float(parts[header_indices["reduced chi^2"]])
+            power_db = float(parts[header_indices["P(dBW)"]])
+            mask_str = parts[header_indices["mask"]]
+        except KeyError as e:
+            raise Exception(f"Required header field missing: {e}")
 
         # Convert UT seconds (since midnight UTC) to Unix timestamp
         midnight = base_date.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -333,9 +356,11 @@ def _parse_dat_extension(lylout_path: str, DB_PATH: str = "lylout_db.db"):
         # Decode the station bitmask using the (possibly overridden) station_mask_order
         stations_list = _decode_station_mask(mask_str, station_mask_order)
 
+        num_stations = len(stations_list.split(","))
+
         # Convert geodetic coordinates to ECEF using pyproj
         x, y, z = transformer.transform(lon, lat, alt)
-
+        
         event = (
             time_unix,
             lat,
@@ -344,14 +369,20 @@ def _parse_dat_extension(lylout_path: str, DB_PATH: str = "lylout_db.db"):
             reduced_chi2,
             num_stations,
             power_db,
-            power,
+            10 ** (power_db / 10),  # Conversion from dBW to linear watts
             mask_str,
             stations_list,
             x,
             y,
             z,
         )
-        _add_to_database(cursor, event)
+        
+        
+        try:
+            _add_to_database(cursor, event)
+        except Exception as e:
+            print("Issue with adding data:", event)
+            traceback.print_exc(file=sys.stdout)
 
     conn.commit()
     conn.close()
