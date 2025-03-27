@@ -1,5 +1,6 @@
 import pandas as pd
-import cupy as cp
+#import cupy as cp
+import numpy as np
 from collections import deque
 from typing import Tuple
 from tqdm import tqdm
@@ -35,10 +36,10 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
     strike_series_df: pd.Series = events.iloc[strike_indeces]
 
     # Cache the cupy arrays for the data columns.
-    all_x = cp.array(strike_series_df["x"].values)
-    all_y = cp.array(strike_series_df["y"].values)
-    all_z = cp.array(strike_series_df["z"].values)
-    all_times = cp.array(strike_series_df["time_unix"].values)
+    all_x = np.array(strike_series_df["x"].values)
+    all_y = np.array(strike_series_df["y"].values)
+    all_z = np.array(strike_series_df["z"].values)
+    all_times = np.array(strike_series_df["time_unix"].values)
 
     # List to store nodes corresponding to each strike.
     parsed_indices: list[int] = []
@@ -56,7 +57,7 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
             y_pre = all_y[:i]
             z_pre = all_z[:i]
             times_pre = all_times[:i]
-            current_coords = cp.array([x1, y1, z1])
+            current_coords = np.array([x1, y1, z1])
 
             # Compute squared Euclidean distances.
             # We don't sqrt for optimization purposes.
@@ -67,7 +68,7 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
 
             # Compute time differences (seconds).
             dt = current_time - times_pre
-            dt = cp.where(dt == 0, 1e-6, dt)  # Avoid divide-by-zero
+            dt = np.where(dt == 0, 1e-6, dt)  # Avoid divide-by-zero
 
             dt_squared = (dt ** 2)
 
@@ -84,15 +85,15 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
             mask = (distances_squared <= max_dist_squared)
             mask &= (speeds_squared <= max_speed_squared) 
             mask &= (speeds_squared >= min_speed_squared)
-            #mask &= (dt_squared <= max_time_threshold_squared) # Kinda uncertain if this should be added but ok
+            mask &= (dt_squared <= max_time_threshold_squared)
 
-            valid_indices = cp.where(mask)[0]
+            valid_indices = np.where(mask)[0]
 
             if valid_indices.size > 0:
                 # Select the candidate with the minimum distance among those valid.
                 valid_distances_squared = distances_squared[valid_indices]
-                min_valid_idx = int(cp.argmin(valid_distances_squared).get())
-                candidate_idx = int(valid_indices[min_valid_idx].get())
+                min_valid_idx = int(np.argmin(valid_distances_squared))
+                candidate_idx = int(valid_indices[min_valid_idx])
                 parent_indice = parsed_indices[candidate_idx]
 
                 correlations.append((parent_indice, current_indice))

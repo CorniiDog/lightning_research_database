@@ -1,14 +1,3 @@
-try:
-  import cupy as cp
-except ModuleNotFoundError:
-    print(
-        "CuPy is not installed.\n"
-        "Please install the appropriate version for your system.\n"
-        "Refer to the project's README for detailed instructions:\n"
-        "    ./README.md"
-    )
-    exit(1)
-    
 import numpy as np
 import pandas as pd
 import pickle as pkl
@@ -59,20 +48,20 @@ def _bucket_dataframe_lightnings(
       list[list[int]]: A list where each sublist contains the indices of the dataframe representing a lightning strike.
     """
     df.sort_values(by="time_unix", inplace=True)
-    time_unix_gpu = cp.asarray(df["time_unix"].values)
-    delta_t = cp.diff(time_unix_gpu)
+    time_unix_gpu = np.asarray(df["time_unix"].values)
+    delta_t = np.diff(time_unix_gpu)
 
     # Group events by time threshold using cumulative sum.
-    time_groups = cp.concatenate(
+    time_groups = np.concatenate(
         (
-            cp.array([0], dtype=cp.int32),
-            cp.cumsum((delta_t > max_time_threshold).astype(cp.int32)),
+            np.array([0], dtype=np.int32),
+            np.cumsum((delta_t > max_time_threshold).astype(np.int32)),
         )
     )
     print(time_groups)
     print("Processing the buckets.")
 
-    group_ids = cp.asnumpy(time_groups)
+    group_ids = time_groups
     unique_groups = np.unique(group_ids)
     total_unique_groups = len(unique_groups)
 
@@ -121,24 +110,24 @@ def _bucket_dataframe_lightnings(
                 # Avoid square rooting  to improve the calculations
                 distances_squared = ((event_x - sg["x"]) ** 2 + (event_y - sg["y"]) ** 2 + (event_z - sg["z"]) ** 2)
 
-                max_dist_between_pts_squared =  (max_dist_between_pts ** 2)
+                max_dist_between_pts_squared = (max_dist_between_pts ** 2)
                 mask = (distances_squared <= max_dist_between_pts_squared)
-                if cp.any(mask):
+                if np.any(mask):
                     # Check speed constraints only for points within spatial threshold.
-                    dt = cp.abs(event_unix - sg["unix"])
-                    dt = cp.where(dt == 0, 1e-6, dt)
+                    dt = np.abs(event_unix - sg["unix"])
+                    dt = np.where(dt == 0, 1e-6, dt)
                     speeds_squared = distances_squared / (dt ** 2)
                     
                     min_speed_squared = (min_speed ** 2)
                     max_speed_squared = (max_speed ** 2)
-                    if cp.any((speeds_squared >= min_speed_squared) & (speeds_squared <= max_speed_squared)):
+                    if np.any((speeds_squared >= min_speed_squared) & (speeds_squared <= max_speed_squared)):
                         # Ensure adding the event doesn't violate max_lightning_duration.
                         if event_unix - sg["unix"][0] <= max_lightning_duration:
                             sg["indices"].append(j)
-                            sg["x"] = cp.concatenate([sg["x"], cp.array([event_x])])
-                            sg["y"] = cp.concatenate([sg["y"], cp.array([event_y])])
-                            sg["z"] = cp.concatenate([sg["z"], cp.array([event_z])])
-                            sg["unix"] = cp.concatenate([sg["unix"], cp.array([event_unix])])
+                            sg["x"] = np.concatenate([sg["x"], np.array([event_x])])
+                            sg["y"] = np.concatenate([sg["y"], np.array([event_y])])
+                            sg["z"] = np.concatenate([sg["z"], np.array([event_z])])
+                            sg["unix"] = np.concatenate([sg["unix"], np.array([event_unix])])
                             found = True
                             break
 
@@ -147,10 +136,10 @@ def _bucket_dataframe_lightnings(
                 sub_groups.append(
                     {
                         "indices": [j],
-                        "x": cp.array([event_x]),
-                        "y": cp.array([event_y]),
-                        "z": cp.array([event_z]),
-                        "unix": cp.array([event_unix]),
+                        "x": np.array([event_x]),
+                        "y": np.array([event_y]),
+                        "z": np.array([event_z]),
+                        "unix": np.array([event_unix]),
                     }
                 )
 
