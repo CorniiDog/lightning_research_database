@@ -3,7 +3,6 @@ import datetime
 import sqlite3
 from pyproj import Transformer
 import pandas as pd
-from typing import Dict, Tuple
 import sys
 import traceback
 

@@ -104,5 +104,5 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
     for strike_indices in bucketed_strike_indices:
         node = stitch_lightning_strike(strike_indices, events, **params)
         bucketed_nodes.append(node)
-        print(f"Processed {len(strike_indices)} indices")
+        print(f"Stitching... Processed {len(strike_indices)} indices")
     return bucketed_nodes

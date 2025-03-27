@@ -455,38 +455,60 @@ def plot_lightning_stitch(
     events: pd.DataFrame,
     output_filename: str = "strike_stitched_map.png",
     _export_fig: bool = True,
+    _range=None
 ) -> go.Figure:
     """
     Plot the stitched lightning correlations on a 2D scatter plot using latitude and longitude.
+    Optionally, add invisible points to enforce axis ranges.
 
     Parameters:
       lightning_correlations (list[Tuple[int, int]]): List of tuples (parent_index, child_index)
-      events (pd.DataFrame): DataFrame containing event data with "lat" and "lon" columns.
+      events (pd.DataFrame): DataFrame containing event data with "lat", "lon", and "time_unix" columns.
       output_filename (str): Filename to export the plot image. Defaults to "strike_stitched_map.png".
       _export_fig (bool): If True, export the figure as an image.
+      _range (list or None): Optional axis ranges in the format [[lat_min, lat_max], [lon_min, lon_max]].
+                             If None, the range will be computed from the data.
 
     Returns:
       go.Figure: The Plotly figure containing the lightning stitch plot.
     """
-
-    # Get the start time
-    start_time_unix = events.iloc[lightning_correlations[-1][-1]]["time_unix"]
+    # Get the start time from the last correlation's child event.
+    start_time_unix = events.loc[lightning_correlations[-1][1]]["time_unix"]
     start_time_dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
     frac = int(start_time_dt.microsecond / 10000)  # Convert microseconds to hundredths (0-99)
-    start_time_dt = start_time_dt.strftime(f"%Y-%m-%d %H:%M:%S.{frac:02d} UTC")
+    start_time_str = start_time_dt.strftime(f"%Y-%m-%d %H:%M:%S.{frac:02d} UTC")
 
-    # Prepare lists for line segments; insert None to separate individual segments.
+    # Use a variable name 'plot_range' to avoid clashing with built-in 'range'
+    plot_range = _range
+    # Prepare lists for line segments; also compute range if not provided.
     lines_x = []
     lines_y = []
+    computed_lat_min, computed_lat_max, computed_lon_min, computed_lon_max = None, None, None, None
+
     for parent_idx, child_idx in lightning_correlations:
         parent_row = events.loc[parent_idx]
         child_row = events.loc[child_idx]
-        # Use latitude for x and longitude for y
+        # Use longitude for x and latitude for y (conventional mapping)
         x1, y1 = parent_row["lon"], parent_row["lat"]
         x2, y2 = child_row["lon"], child_row["lat"]
         lines_x.extend([x1, x2, None])
         lines_y.extend([y1, y2, None])
-    
+        if plot_range is None:
+            for x_val in [x1, x2]:
+                if computed_lon_min is None or x_val < computed_lon_min:
+                    computed_lon_min = x_val
+                if computed_lon_max is None or x_val > computed_lon_max:
+                    computed_lon_max = x_val
+            for y_val in [y1, y2]:
+                if computed_lat_min is None or y_val < computed_lat_min:
+                    computed_lat_min = y_val
+                if computed_lat_max is None or y_val > computed_lat_max:
+                    computed_lat_max = y_val
+
+    if plot_range is None:
+        # Note: plot_range is defined as [[lat_min, lat_max], [lon_min, lon_max]]
+        plot_range = [[computed_lat_min, computed_lat_max], [computed_lon_min, computed_lon_max]]
+                
     # Create a scatter trace for the correlation lines.
     line_trace = go.Scatter(
         x=lines_x,
@@ -519,12 +541,24 @@ def plot_lightning_stitch(
         name="Lightning Strikes"
     )
     
+    # Add invisible points to enforce the specified range.
+    # Since x-axis corresponds to longitude and y-axis to latitude,
+    # we add two points: one at the lower bound and one at the upper bound.
+    invisible_trace = go.Scatter(
+        x=[plot_range[1][0], plot_range[1][1]],
+        y=[plot_range[0][0], plot_range[0][1]],
+        mode="markers",
+        marker=dict(opacity=0),
+        showlegend=False,
+        hoverinfo="none"
+    )
+    
     # Build the figure.
-    fig = go.Figure(data=[line_trace, points_trace])
+    fig = go.Figure(data=[line_trace, points_trace, invisible_trace])
     fig.update_layout(
-        title=f"Lightning Strike Stitching ({start_time_dt})",
-        xaxis=dict(title="Longitude", showgrid=True, gridcolor="lightgray"),
-        yaxis=dict(title="Latitude", showgrid=True, gridcolor="lightgray"),
+        title=f"Lightning Strike Stitching ({start_time_str})",
+        xaxis=dict(title="Longitude", range=plot_range[1], showgrid=True, gridcolor="lightgray"),
+        yaxis=dict(title="Latitude", range=plot_range[0], showgrid=True, gridcolor="lightgray"),
         template="plotly_white",
         margin=dict(l=50, r=50, t=80, b=50)
     )
@@ -533,4 +567,168 @@ def plot_lightning_stitch(
     if _export_fig:
         fig.write_image(output_filename, scale=3)
     
-    return fig
+    return fig, plot_range
+
+
+
+def plot_lightning_stitch_gif(
+    lightning_correlations: list[Tuple[int, int]], 
+    events: pd.DataFrame,
+    num_frames: int = 30,
+    output_filename: str = "strike_stitched_map_animation.gif",
+    duration: float = 3000,
+    looped: bool = True,
+) -> str:
+    """
+    Generate a GIF animation of the lightning stitching process.
+    
+    The function progressively adds lightning correlations and creates an animated plot
+    showing the incremental construction of the stitched lightning map.
+    
+    Parameters:
+      lightning_correlations (list[Tuple[int, int]]): List of tuples (parent_index, child_index).
+      events (pd.DataFrame): DataFrame containing event data with "lat", "lon", and "time_unix" columns.
+      num_frames (int): Number of frames in the GIF animation. Defaults to 30.
+      output_filename (str): Filename for the output GIF. Defaults to "strike_stitched_map_animation.gif".
+      duration (float): Total duration (in milliseconds) of the GIF. Defaults to 3000.
+      looped (bool): If True, the GIF will loop indefinitely. Defaults to True.
+    
+    Returns:
+      str: The filename where the GIF animation is saved.
+    """
+
+    # Sort the correlations by the child's event time to ensure proper progression.
+    sorted_correlations = sorted(lightning_correlations, key=lambda corr: events.loc[corr[1], "time_unix"])
+    
+    # Compute the full plot range from all correlations if not provided.
+    computed_lat_min, computed_lat_max, computed_lon_min, computed_lon_max = None, None, None, None
+    for parent_idx, child_idx in lightning_correlations:
+        parent_row = events.loc[parent_idx]
+        child_row = events.loc[child_idx]
+        for lat_val in [parent_row["lat"], child_row["lat"]]:
+            if computed_lat_min is None or lat_val < computed_lat_min:
+                computed_lat_min = lat_val
+            if computed_lat_max is None or lat_val > computed_lat_max:
+                computed_lat_max = lat_val
+        for lon_val in [parent_row["lon"], child_row["lon"]]:
+            if computed_lon_min is None or lon_val < computed_lon_min:
+                computed_lon_min = lon_val
+            if computed_lon_max is None or lon_val > computed_lon_max:
+                computed_lon_max = lon_val
+    full_range = [[computed_lat_min, computed_lat_max], [computed_lon_min, computed_lon_max]]
+    
+    frames = []
+    total_corr = len(sorted_correlations)
+    
+    # Generate frames by progressively adding more correlations.
+    for frame in range(1, num_frames + 1):
+        # Determine the cutoff index for the current frame (ensure at least one correlation is shown).
+        cutoff = max(1, int(round((frame / num_frames) * total_corr)))
+        subset = sorted_correlations[:cutoff]
+        
+        # Generate the plot for the current subset.
+        # Note: _export_fig is False so the figure is not saved to disk.
+        fig, _ = plot_lightning_stitch(
+            subset, 
+            events, 
+            output_filename="temp.png",  # Dummy filename; image export is disabled.
+            _export_fig=False,
+            _range=full_range
+        )
+        
+        # Convert the Plotly figure to an image.
+        img_bytes = fig.to_image(format="png", scale=3)
+        img = Image.open(BytesIO(img_bytes))
+        frames.append(np.array(img))
+    
+    # Calculate frame duration (in milliseconds) and set loop parameter (0 for infinite looping).
+    frame_duration = duration / num_frames
+    loop_val = 0 if looped else 1
+    
+    # Save all frames as a GIF animation.
+    imageio.mimsave(output_filename, frames, duration=frame_duration, loop=loop_val)
+    return output_filename
+
+            
+def _plot_strike_stitchings(args):
+    """
+    Helper function to generate and save a stitched lightning map for a single group of correlations.
+
+    This function unpacks the input arguments, determines a safe filename based on the last
+    correlation's child event time, and then generates either a static image or a GIF animation
+    using the corresponding plotting function.
+
+    Parameters:
+      args (tuple): A tuple containing:
+          - lightning_correlations (list[Tuple[int, int]]): List of correlation tuples for a group.
+          - events (pandas.DataFrame): DataFrame containing lightning event data.
+          - output_dir (str): Directory where the stitched image/GIF should be saved.
+          - as_gif (bool): If True, generate a GIF animation; otherwise, create a static image.
+
+    Returns:
+      None.
+    """
+    lightning_correlations, events, output_dir, as_gif = args
+
+    # Use the last correlation's child event time for filename generation.
+    start_time_unix = events.loc[lightning_correlations[-1][1]]["time_unix"]
+    start_time_dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
+    start_time_str = start_time_dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+    safe_start_time = re.sub(r'[<>:"/\\|?*]', '_', start_time_str)
+
+    if not as_gif:
+        output_filename = os.path.join(output_dir, f"{safe_start_time}.png")
+        # Generate a static stitched map.
+        plot_lightning_stitch(
+            lightning_correlations,
+            events,
+            output_filename=output_filename,
+            _export_fig=True
+        )
+    else:
+        output_filename = os.path.join(output_dir, f"{safe_start_time}.gif")
+        # Generate a GIF animation of the stitching process.
+        plot_lightning_stitch_gif(
+            lightning_correlations,
+            events,
+            output_filename=output_filename
+        )
+
+
+def plot_all_strike_stitchings(
+    bucketed_lightning_correlations: list[list[Tuple[int, int]]],
+    events: pd.DataFrame,
+    output_dir: str = "strike_stitchings",
+    num_cores: int = 1,
+    as_gif: bool = False
+):
+    """
+    Generate and save stitched lightning maps for all groups of correlations using parallel processing.
+
+    This function prepares argument tuples for each group of lightning correlations and utilizes a
+    multiprocessing pool to generate stitched maps concurrently. A progress bar is displayed to indicate
+    processing status.
+
+    Parameters:
+      bucketed_lightning_correlations (list[list[Tuple[int, int]]]): List where each sublist contains
+                                                                      correlation tuples for a group.
+      events (pandas.DataFrame): DataFrame containing the lightning event data.
+      output_dir (str): Directory to save the generated stitched images/GIFs. Defaults to "strike_stitchings".
+      num_cores (int): Number of worker processes to use for parallel processing. Defaults to 1.
+      as_gif (bool): If True, export as a GIF animation; otherwise, export as static images.
+
+    Returns:
+      None.
+    """
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    args_list = [
+        (lightning_correlations, events, output_dir, as_gif)
+        for lightning_correlations in bucketed_lightning_correlations
+    ]
+
+    with multiprocessing.Pool(processes=num_cores) as pool:
+        for _ in tqdm(pool.imap(_plot_strike_stitchings, args_list), total=len(args_list)):
+            pass

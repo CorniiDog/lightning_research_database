@@ -9,8 +9,6 @@ import logger
 import datetime
 import shutil
 import time
-import sys
-
 
 ####################################################################################
  #
@@ -65,9 +63,7 @@ lightning_data_folder = "lylout_files"  # Should put all "LYLOUT..." files withi
 data_extension = ".dat"
 os.makedirs(lightning_data_folder, exist_ok=True)  # Ensure that it exists
 
-dat_file_paths = database_parser.get_dat_files_paths(
-    lightning_data_folder, data_extension
-)
+dat_file_paths = database_parser.get_dat_files_paths(lightning_data_folder, data_extension)
 
 # The SQLite database file
 # (This file doesn't need to exist. Will auto-generate a new one)
@@ -86,9 +82,7 @@ for file_path in dat_file_paths:
     if not logger.is_logged(file_path):
         print(file_path, "not appropriately added to the database. Adding...")
         database_parser.parse_lylout(file_path, DB_PATH)
-        logger.log_file(
-            file_path
-        )  # Log the file for no redundant re-processing into the database
+        logger.log_file(file_path)  # Log the file for no redundant re-processing into the database
 
     # If the file is already processed, do nothing
     else:
@@ -125,6 +119,7 @@ print("Headers:", database_parser.get_headers(DB_PATH))
 start_time = datetime.datetime(
     2022, 7, 13, 0, 0, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
+
 end_time = datetime.datetime(
     2022, 7, 13, 23, 0, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
@@ -173,9 +168,8 @@ lightning_bucketer.RESULT_CACHE_FILE = os.path.join(cache_dir, "result_cache.pkl
 
 # The parameters above will be passed to return bucketed_strikes_indices, defined by type list[list[int]]
 # which is a list of all lightning stikes, such that each lightning strike is a list of all indexes
-bucketed_strikes_indices = lightning_bucketer.bucket_dataframe_lightnings(
-    events, **params
-)
+bucketed_strikes_indices = lightning_bucketer.bucket_dataframe_lightnings(events, **params)
+
 # Example: To get a Pandas DataFrame of the first strike in the list, you do:
 # ```
 # first_strikes = events.iloc[bucketed_strikes_indices[0]]
@@ -191,9 +185,8 @@ bucketed_strikes_indices = lightning_bucketer.bucket_dataframe_lightnings(
 
 # Sort the bucketed strikes indices by the length of each sublist in descending order.
 # (Strikes with most points first)
-bucketed_strikes_indices_sorted = sorted(
-    bucketed_strikes_indices, key=len, reverse=True
-)
+bucketed_strikes_indices_sorted_by_len = sorted(bucketed_strikes_indices, key=len, reverse=True)
+
 # Example: To get a Pandas DataFrame of the first strike in the list, you do:
 # ```
 # first_strikes = events.iloc[bucketed_strikes_indices_sorted[0]]
@@ -206,32 +199,17 @@ bucketed_strikes_indices_sorted = sorted(
 #   # Process the dataframe however you please of the designated lightning strike
 # ```
 
-# Sort the bucketed strikes indices by strongest power.
-# Here, for each strike, we compute the average 'power' value from the corresponding events,
-# and sort in descending order so that the strike with the highest power comes first.
-bucketed_strikes_indices_sorted_by_power = sorted(
-    bucketed_strikes_indices,
-    key=lambda strike: events.loc[strike, "power"].mean(),
-    reverse=True
-)
 
-print(f"Number of strikes matching criteria: {len(bucketed_strikes_indices_sorted)}")
+print(f"Number of strikes matching criteria: {len(bucketed_strikes_indices_sorted_by_len)}")
 
 # Stop the program if the data is too restrained
-if len(bucketed_strikes_indices_sorted) == 0:
+if len(bucketed_strikes_indices_sorted_by_len) == 0:
     print("Data too restrained.")
 
 # Print each bucket with its length to terminal
-for i, strike in enumerate(bucketed_strikes_indices_sorted):
+for i, strike in enumerate(bucketed_strikes_indices_sorted_by_len):
     start_time_unix = events.iloc[strike[0]]["time_unix"]
     print(f"Bucket {i}: Length = {len(strike)}: Time = {start_time_unix}")
-
-
-print("Stitching together lightning strikes")
-bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted, events, **params)
-
-print("Creating plot of the first stitch")
-lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations[0], events, "test_stitch.png")
 
 print("Created buckets of nodes that resemble a lightning strike")
 ####################################################################################
@@ -248,7 +226,7 @@ if os.path.exists(csv_dir):
 
 os.makedirs(csv_dir, exist_ok=True)
 
-lightning_bucketer.export_as_csv(bucketed_strikes_indices_sorted, events, output_dir=csv_dir)
+lightning_bucketer.export_as_csv(bucketed_strikes_indices_sorted_by_len, events, output_dir=csv_dir)
 
 print("Finished exporting as CSV")
 
@@ -258,24 +236,28 @@ os.makedirs(export_dir, exist_ok=True)
 # Exporting a chart of strikes over time
 print("Plotting strike points over time")
 export_path = os.path.join(export_dir, "strike_pts_over_time")
-lightning_plotters.plot_strikes_over_time(bucketed_strikes_indices_sorted, events, output_filename=export_path+".png")
+lightning_plotters.plot_strikes_over_time(bucketed_strikes_indices_sorted_by_len, events, output_filename=export_path+".png")
 
 # Exporting most points
 print("Exporting largest instance")
-largest_strike = bucketed_strikes_indices_sorted[0]
+largest_strike = bucketed_strikes_indices_sorted_by_len[0]
 export_path = os.path.join(export_dir, "most_pts")
 lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename=export_path+".png", transparency_threshold=-1)
 lightning_plotters.generate_strike_gif(largest_strike, events, output_filename=export_path+".gif", transparency_threshold=-1)
 lightning_plotters.create_interactive_html(export_path+".gif", export_path+".html")
 
-# Exporting strongest power
-print("Exporting the strongest power")
-strongest_power_strike = bucketed_strikes_indices_sorted_by_power[0]
-export_path = os.path.join(export_dir, "strongest_power")
-lightning_plotters.plot_avg_power_map(strongest_power_strike, events, output_filename=export_path+".png", transparency_threshold=-1)
-lightning_plotters.generate_strike_gif(strongest_power_strike, events, output_filename=export_path+".gif", transparency_threshold=-1)
-lightning_plotters.create_interactive_html(export_path+".gif", export_path+".html")
-print("Plotting all strikes into a readable heatmap.")
+
+print("Exporting largest stitched instance")
+#bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted, events, **params)
+bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted_by_len, events, **params)
+
+export_path = os.path.join(export_dir, "most_pts_stitched")
+lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations[0], events, export_path+".png")
+lightning_plotters.plot_lightning_stitch_gif(bucketed_lightning_correlations[0], events, output_filename=export_path+".gif")
+
+
+exit()
+
 
 strike_dir = "strikes"
 
@@ -286,14 +268,30 @@ if os.path.exists(strike_dir):
     shutil.rmtree(strike_dir)
 
 os.makedirs(strike_dir, exist_ok=True)
-lightning_plotters.plot_all_strikes(
-    bucketed_strikes_indices_sorted, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1
-)
 
-lightning_plotters.plot_all_strikes(
-    bucketed_strikes_indices_sorted, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1
-)
+print("Plotting strikes as a heatmap")
+lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1)
+
+lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1)
+
+print("Plotting all strike stitchings")
+
+strike_stitchings_dir = "strike_stitchings"
+
+# Remove the strike_stitchings directory if it exists
+# This prevents existing plots from intertwining
+# with the existing plots.
+if os.path.exists(strike_stitchings_dir):
+    shutil.rmtree(strike_stitchings_dir)
+
+lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, events, strike_dir, NUM_CORES, sigma=1.5)
+
+lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, events, strike_dir, NUM_CORES, as_gif=True)
+
+
+
 print("Finished generating plots")
+
 
 
 process_time = time.time() - process_start_time

@@ -15,6 +15,7 @@ import pickle as pkl
 import os
 import hashlib
 import re
+import datetime
 
 def _bucket_dataframe_lightnings(
     df: pd.DataFrame,
@@ -318,10 +319,13 @@ def export_as_csv(bucketed_strike_indices: list[list[int]], events: pd.DataFrame
         
         # Convert the first event's time to a datetime object for a meaningful file name
         start_time_unix = strike_df.iloc[0]["time_unix"]
-        start_time_dt = pd.to_datetime(start_time_unix, unit="s")
-        
+        start_time_dt = datetime.datetime.fromtimestamp(
+        start_time_unix, tz=datetime.timezone.utc
+        ).strftime("%Y-%m-%d %H:%M:%S UTC")
+
         # Generate a safe file name using regex to remove forbidden characters
         safe_start_time = re.sub(r'[<>:"/\\|?*]', '_', str(start_time_dt))
+        
         
         # Construct the output file path and ensure unique names if needed
         output_filename = os.path.join(output_dir, f"{safe_start_time}.csv")
