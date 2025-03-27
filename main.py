@@ -259,6 +259,8 @@ lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations[0], eve
 lightning_plotters.plot_lightning_stitch_gif(bucketed_lightning_correlations[0], events, output_filename=export_path+".gif")
 
 
+exit()
+
 strike_dir = "strikes"
 
 # Remove the strikes directory if it exists

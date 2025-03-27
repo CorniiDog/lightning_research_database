@@ -15,6 +15,7 @@ from PIL import Image
 import re
 from typing import Tuple
 from plotly.colors import sample_colorscale
+from plotly.subplots import make_subplots
 
 def plot_strikes_over_time(
     bucketed_strikes_indices_sorted: list[list[int]],
@@ -376,6 +377,7 @@ def plot_lightning_stitch(
     events: pd.DataFrame,
     output_filename: str = "strike_stitched_map.png",
     _export_fig: bool = True,
+    _dimensions: list[list[str, str], list[str, str]] = (["lon", "Longitude"], ["lat", "Latitude"]),
     _range=None
 ) -> go.Figure:
     """
@@ -409,12 +411,17 @@ def plot_lightning_stitch(
     computed_lat_min, computed_lat_max, computed_lon_min, computed_lon_max = None, None, None, None
     avg_unixes = []  # List to store average unix time for each segment
 
+    x_dim: str = _dimensions[0][0] or "lon" # i.e. "lon"
+    x_header: str = _dimensions[0][1] or "Longitude"
+    y_dim: str = _dimensions[1][0] or "lat" # i.e. "lat"
+    y_header: str = _dimensions[1][1] or "Latitude"
+
     # First pass: compute plot range and collect average unix times.
     for parent_idx, child_idx in lightning_correlations:
         parent_row = events.loc[parent_idx]
         child_row = events.loc[child_idx]
-        x1, y1 = parent_row["lon"], parent_row["lat"]
-        x2, y2 = child_row["lon"], child_row["lat"]
+        x1, y1 = parent_row[x_dim], parent_row[y_dim]
+        x2, y2 = child_row[x_dim], child_row[y_dim]
 
         # Update computed range
         for x_val in [x1, x2]:
@@ -450,8 +457,8 @@ def plot_lightning_stitch(
         t = seconds_after / max_diff if max_diff else 0.5
         color = sample_colorscale('Cividis', t)[0]
         trace = go.Scatter(
-            x=[parent_row["lon"], child_row["lon"]],
-            y=[parent_row["lat"], child_row["lat"]],
+            x=[parent_row[x_dim], child_row[x_dim]],
+            y=[parent_row[y_dim], child_row[y_dim]],
             mode="lines",
             line=dict(color=color, width=2),
             showlegend=False,
@@ -487,8 +494,8 @@ def plot_lightning_stitch(
     point_powers = []
     for idx in unique_indices:
         row = events.loc[idx]
-        points_x.append(row["lon"])
-        points_y.append(row["lat"])
+        points_x.append(row[x_dim])
+        points_y.append(row[y_dim])
         point_powers.append(row["power_db"])
 
     # Create a scatter trace for the strike points with a second colorbar for power_db.
@@ -520,8 +527,8 @@ def plot_lightning_stitch(
     fig = go.Figure(data=line_traces + [dummy_trace, points_trace, invisible_trace])
     fig.update_layout(
         title=f"Lightning Strike Stitching ({start_time_str})",
-        xaxis=dict(title="Longitude", range=plot_range[1], showgrid=True, gridcolor="lightgray"),
-        yaxis=dict(title="Latitude", range=plot_range[0], showgrid=True, gridcolor="lightgray"),
+        xaxis=dict(title=f"{x_header}", range=plot_range[1], showgrid=True, gridcolor="lightgray"),
+        yaxis=dict(title=f"{y_header}", range=plot_range[0], showgrid=True, gridcolor="lightgray"),
         template="plotly_white",
         margin=dict(l=50, r=50, t=80, b=50)
     )
@@ -699,3 +706,5 @@ def plot_all_strike_stitchings(
     with multiprocessing.Pool(processes=num_cores) as pool:
         for _ in tqdm(pool.imap(_plot_strike_stitchings, args_list), total=len(args_list)):
             pass
+
+

@@ -25,20 +25,6 @@ One million datapoints should take roughly 7 minutes. Running the same exact par
 
 4. Either check the box for "requirements.txt" before continuing, or after re-opening the terminal to do `pip install -r requirements.txt`
 
-### Note that the library uses CUDA
-
->1. Install your designated CUDA: https://developer.nvidia.com/cuda-downloads
->
->2. Determine CUDA version by typing into terminal: `nvidia-smi`
->
->![smi](.img/smi-screenshot.png)
->
->3. Install your designated cupy version: https://pypi.org/project/cupy/
->
->![cupy](.img/cupy_versions.png)
->
-> As My `nvidia-smi` stated that my CUDA version was 12.8, I would do `pip install cupy-cuda12x`
-
 ### To Run the project
 
 1. Drag and drop your LYLOUT text files into "lylout_files" directory.
