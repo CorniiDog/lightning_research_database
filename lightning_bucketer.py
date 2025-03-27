@@ -70,7 +70,7 @@ def _bucket_dataframe_lightnings(
         )
     )
     print(time_groups)
-    print("Done grouping by time threshold.")
+    print("Processing the buckets.")
 
     group_ids = cp.asnumpy(time_groups)
     unique_groups = np.unique(group_ids)

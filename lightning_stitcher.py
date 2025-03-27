@@ -61,6 +61,8 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
             current_coords = cp.array([x1, y1, z1])
 
             # Compute squared Euclidean distances.
+            # We don't sqrt for optimization purposes.
+            # We just do our math in squareds
             distances_squared = ((x_pre - current_coords[0])**2 +
                                 (y_pre - current_coords[1])**2 +
                                 (z_pre - current_coords[2])**2)
