@@ -151,7 +151,7 @@ print(events)
 # Additional parameters that determines "What points make up a single lightning strike"
 # They are explicitly defined
 params = {
-    "max_lightning_dist": 1000,  # max distance between two points to determine it being involved in the same strike
+    "max_lightning_dist": 3000,  # max distance between two points to determine it being involved in the same strike
     "max_lightning_speed": 299792.458,  # max speed between two points in m/s (essentially dx/dt)
     "min_lightning_speed": 0,  # min speed between two points in m/s (essentially dx/dt)
     "min_lightning_points": 300,  # The minimum number of points to pass the system as a "lightning strike"
