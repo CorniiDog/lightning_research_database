@@ -246,17 +246,15 @@ lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename=ex
 lightning_plotters.generate_strike_gif(largest_strike, events, output_filename=export_path+".gif", transparency_threshold=-1)
 lightning_plotters.create_interactive_html(export_path+".gif", export_path+".html")
 
+print("Stitching lightning strikes")
+bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted_by_len, NUM_CORES, events, **params)
+
 
 print("Exporting largest stitched instance")
-#bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted, events, **params)
-bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted_by_len, NUM_CORES, events, **params)
 
 export_path = os.path.join(export_dir, "most_pts_stitched")
 lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations[0], events, export_path+".png")
 lightning_plotters.plot_lightning_stitch_gif(bucketed_lightning_correlations[0], events, output_filename=export_path+".gif")
-
-
-exit()
 
 
 strike_dir = "strikes"
@@ -270,9 +268,9 @@ if os.path.exists(strike_dir):
 os.makedirs(strike_dir, exist_ok=True)
 
 print("Plotting strikes as a heatmap")
-lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1)
+lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted_by_len, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1)
 
-lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1)
+lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted_by_len, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1)
 
 print("Plotting all strike stitchings")
 
