@@ -4,7 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from scipy.stats import binned_statistic_2d
-from typing import List
 from scipy.ndimage import gaussian_filter
 import os
 import multiprocessing
@@ -12,10 +11,7 @@ from tqdm import tqdm
 from io import BytesIO
 from PIL import Image
 import imageio
-import math
-import base64
-from PIL import Image, ImageSequence
-import io
+from PIL import Image
 import re
 from typing import Tuple
 

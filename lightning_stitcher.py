@@ -2,8 +2,6 @@ import pandas as pd
 import cupy as cp
 from collections import deque
 from typing import Tuple
-import os
-import multiprocessing
 from tqdm import tqdm
 
 def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **params) -> list[Tuple[(int, int)]]:
@@ -71,16 +69,20 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
             dt = current_time - times_pre
             dt = cp.where(dt == 0, 1e-6, dt)  # Avoid divide-by-zero
 
+            dt_squared = (dt ** 2)
+
             # Compute squared speeds (m²/s²).
-            speeds_squared = distances_squared / (dt ** 2)
+            speeds_squared = distances_squared / dt_squared
 
             # Precompute squared thresholds.
             max_dist_squared = max_dist_between_pts ** 2
             max_speed_squared = max_speed ** 2
             min_speed_squared = min_speed ** 2
+            max_time_threshold_squared = max_time_threshold ** 2
 
             # Apply filtering mask using squared comparisons.
-            mask = (distances_squared <= max_dist_squared) & \
+            mask = (dt_squared <= max_time_threshold_squared) & \
+                (distances_squared <= max_dist_squared) & \
                 (speeds_squared <= max_speed_squared) & \
                 (speeds_squared >= min_speed_squared)
 
@@ -118,7 +120,8 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
     results = []
     for strike_indices in tqdm(bucketed_strike_indices, total=len(bucketed_strike_indices)):
         result = stitch_lightning_strike(strike_indices, events, **params)
-        results.append(result)
+        if len(result) > 0:
+            results.append(result)
 
     return results
 
