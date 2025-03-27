@@ -14,6 +14,7 @@ import imageio
 from PIL import Image
 import re
 from typing import Tuple
+from plotly.colors import sample_colorscale
 
 def plot_strikes_over_time(
     bucketed_strikes_indices_sorted: list[list[int]],
@@ -379,11 +380,12 @@ def plot_lightning_stitch(
 ) -> go.Figure:
     """
     Plot the stitched lightning correlations on a 2D scatter plot using latitude and longitude.
-    Optionally, add invisible points to enforce axis ranges.
+    The line colors represent the elapsed seconds from the earliest event (using a dummy trace to 
+    display a continuous colorbar), and invisible points enforce axis ranges.
 
     Parameters:
       lightning_correlations (list[Tuple[int, int]]): List of tuples (parent_index, child_index)
-      events (pd.DataFrame): DataFrame containing event data with "lat", "lon", and "time_unix" columns.
+      events (pd.DataFrame): DataFrame containing event data with "lat", "lon", "time_unix", and "power_db" columns.
       output_filename (str): Filename to export the plot image. Defaults to "strike_stitched_map.png".
       _export_fig (bool): If True, export the figure as an image.
       _range (list or None): Optional axis ranges in the format [[lat_min, lat_max], [lon_min, lon_max]].
@@ -403,44 +405,74 @@ def plot_lightning_stitch(
     frac = int(start_time_dt.microsecond / 10000)  # Convert microseconds to hundredths (0-99)
     start_time_str = start_time_dt.strftime(f"%Y-%m-%d %H:%M:%S.{frac:02d} UTC")
 
-    # Use a variable name 'plot_range' to avoid clashing with built-in 'range'
     plot_range = _range
-    # Prepare lists for line segments; also compute range if not provided.
-    lines_x = []
-    lines_y = []
     computed_lat_min, computed_lat_max, computed_lon_min, computed_lon_max = None, None, None, None
+    avg_unixes = []  # List to store average unix time for each segment
 
+    # First pass: compute plot range and collect average unix times.
     for parent_idx, child_idx in lightning_correlations:
         parent_row = events.loc[parent_idx]
         child_row = events.loc[child_idx]
-        # Use longitude for x and latitude for y (conventional mapping)
         x1, y1 = parent_row["lon"], parent_row["lat"]
         x2, y2 = child_row["lon"], child_row["lat"]
-        lines_x.extend([x1, x2, None])
-        lines_y.extend([y1, y2, None])
-        if plot_range is None:
-            for x_val in [x1, x2]:
-                if computed_lon_min is None or x_val < computed_lon_min:
-                    computed_lon_min = x_val
-                if computed_lon_max is None or x_val > computed_lon_max:
-                    computed_lon_max = x_val
-            for y_val in [y1, y2]:
-                if computed_lat_min is None or y_val < computed_lat_min:
-                    computed_lat_min = y_val
-                if computed_lat_max is None or y_val > computed_lat_max:
-                    computed_lat_max = y_val
+
+        # Update computed range
+        for x_val in [x1, x2]:
+            if computed_lon_min is None or x_val < computed_lon_min:
+                computed_lon_min = x_val
+            if computed_lon_max is None or x_val > computed_lon_max:
+                computed_lon_max = x_val
+        for y_val in [y1, y2]:
+            if computed_lat_min is None or y_val < computed_lat_min:
+                computed_lat_min = y_val
+            if computed_lat_max is None or y_val > computed_lat_max:
+                computed_lat_max = y_val
+
+        # Compute the average unix time for the segment.
+        avg_unix = np.average([parent_row["time_unix"], child_row["time_unix"]])
+        avg_unixes.append(avg_unix)
 
     if plot_range is None:
-        # Note: plot_range is defined as [[lat_min, lat_max], [lon_min, lon_max]]
         plot_range = [[computed_lat_min, computed_lat_max], [computed_lon_min, computed_lon_max]]
-                
-    # Create a scatter trace for the correlation lines.
-    line_trace = go.Scatter(
-        x=lines_x,
-        y=lines_y,
-        mode="lines",
-        line=dict(color="blue", width=2),
-        name="Lightning Stitch"
+
+    # Determine the seconds offset and range for color scaling.
+    unix_offset = min(avg_unixes)
+    max_diff = max(avg_unixes) - unix_offset  # total elapsed seconds
+
+    # Create individual line traces for each correlation segment.
+    line_traces = []
+    for i, (parent_idx, child_idx) in enumerate(lightning_correlations):
+        parent_row = events.loc[parent_idx]
+        child_row = events.loc[child_idx]
+        # Calculate seconds after the earliest event.
+        seconds_after = np.average([parent_row["time_unix"], child_row["time_unix"]]) - unix_offset
+        # Compute interpolation factor t (0 = earliest, 1 = latest).
+        t = seconds_after / max_diff if max_diff else 0.5
+        color = sample_colorscale('Cividis', t)[0]
+        trace = go.Scatter(
+            x=[parent_row["lon"], child_row["lon"]],
+            y=[parent_row["lat"], child_row["lat"]],
+            mode="lines",
+            line=dict(color=color, width=2),
+            showlegend=False,
+            hoverinfo="none"
+        )
+        line_traces.append(trace)
+
+    # Dummy trace to display the "Seconds After Start" colorbar.
+    dummy_trace = go.Scatter(
+        x=[None],
+        y=[None],
+        mode="markers",
+        marker=dict(
+            colorscale='Cividis',
+            cmin=0,
+            cmax=max_diff,
+            color=[0, max_diff],
+            colorbar=dict(title="Time (s)", tickformat="0.2f", x=1.0)
+        ),
+        showlegend=False,
+        hoverinfo="none"
     )
 
     # Gather unique indices for lightning strikes.
@@ -448,27 +480,33 @@ def plot_lightning_stitch(
     for parent_idx, child_idx in lightning_correlations:
         unique_indices.add(parent_idx)
         unique_indices.add(child_idx)
-    
+
     # Extract coordinates for the strike points.
     points_x = []
     points_y = []
+    point_powers = []
     for idx in unique_indices:
         row = events.loc[idx]
         points_x.append(row["lon"])
         points_y.append(row["lat"])
-    
-    # Create a scatter trace for the strike points.
+        point_powers.append(row["power_db"])
+
+    # Create a scatter trace for the strike points with a second colorbar for power_db.
     points_trace = go.Scatter(
         x=points_x,
         y=points_y,
         mode="markers",
-        marker=dict(color="red", size=3),
-        name="Lightning Strikes"
+        marker=dict(
+            size=3,
+            color=point_powers,
+            colorscale='Agsunset', 
+            colorbar=dict(title="Power (dBW)", x=1.15)  # Adjust x to position second colorbar
+        ),
+        name="Lightning Strikes",
+        showlegend=False
     )
-    
+
     # Add invisible points to enforce the specified range.
-    # Since x-axis corresponds to longitude and y-axis to latitude,
-    # we add two points: one at the lower bound and one at the upper bound.
     invisible_trace = go.Scatter(
         x=[plot_range[1][0], plot_range[1][1]],
         y=[plot_range[0][0], plot_range[0][1]],
@@ -477,9 +515,9 @@ def plot_lightning_stitch(
         showlegend=False,
         hoverinfo="none"
     )
-    
-    # Build the figure.
-    fig = go.Figure(data=[line_trace, points_trace, invisible_trace])
+
+    # Combine all traces.
+    fig = go.Figure(data=line_traces + [dummy_trace, points_trace, invisible_trace])
     fig.update_layout(
         title=f"Lightning Strike Stitching ({start_time_str})",
         xaxis=dict(title="Longitude", range=plot_range[1], showgrid=True, gridcolor="lightgray"),
@@ -487,12 +525,13 @@ def plot_lightning_stitch(
         template="plotly_white",
         margin=dict(l=50, r=50, t=80, b=50)
     )
-    
-    # Export the figure to a file if requested.
+
     if _export_fig:
         fig.write_image(output_filename, scale=3)
-    
+
     return fig, plot_range
+
+
 
 
 
