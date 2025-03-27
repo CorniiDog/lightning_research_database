@@ -212,6 +212,12 @@ for i, strike in enumerate(bucketed_strikes_indices_sorted_by_len):
     print(f"Bucket {i}: Length = {len(strike)}: Time = {start_time_unix}")
 
 print("Created buckets of nodes that resemble a lightning strike")
+
+print("Stitching lightning strikes")
+bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted_by_len, NUM_CORES, events, **params)
+
+print("Finished generating stitchings of the lightning strike")
+
 ####################################################################################
  #
   # Plotting and exporting
@@ -246,9 +252,6 @@ lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename=ex
 lightning_plotters.generate_strike_gif(largest_strike, events, output_filename=export_path+".gif", transparency_threshold=-1)
 lightning_plotters.create_interactive_html(export_path+".gif", export_path+".html")
 
-print("Stitching lightning strikes")
-bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted_by_len, NUM_CORES, events, **params)
-
 
 print("Exporting largest stitched instance")
 
@@ -269,7 +272,6 @@ os.makedirs(strike_dir, exist_ok=True)
 
 print("Plotting strikes as a heatmap")
 lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted_by_len, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1)
-
 lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted_by_len, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1)
 
 print("Plotting all strike stitchings")
@@ -283,14 +285,9 @@ if os.path.exists(strike_stitchings_dir):
     shutil.rmtree(strike_stitchings_dir)
 
 lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, events, strike_stitchings_dir, NUM_CORES)
-
 lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, events, strike_stitchings_dir, NUM_CORES, as_gif=True)
 
-
-
 print("Finished generating plots")
-
-
 
 process_time = time.time() - process_start_time
 print(f"Process time: {process_time:.2f} seconds.")
