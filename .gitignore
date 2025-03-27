@@ -10,3 +10,4 @@ nohup.out
 log_dir/
 strikes_csv_files/
 cache_dir/
+strike_stitchings/

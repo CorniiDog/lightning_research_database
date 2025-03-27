@@ -284,9 +284,9 @@ strike_stitchings_dir = "strike_stitchings"
 if os.path.exists(strike_stitchings_dir):
     shutil.rmtree(strike_stitchings_dir)
 
-lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, events, strike_dir, NUM_CORES, sigma=1.5)
+lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, events, strike_stitchings_dir, NUM_CORES, sigma=1.5)
 
-lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, events, strike_dir, NUM_CORES, as_gif=True)
+lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, events, strike_stitchings_dir, NUM_CORES, as_gif=True)
 
 
 
