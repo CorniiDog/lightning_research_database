@@ -249,7 +249,7 @@ lightning_plotters.create_interactive_html(export_path+".gif", export_path+".htm
 
 print("Exporting largest stitched instance")
 #bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted, events, **params)
-bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted_by_len, events, **params)
+bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted_by_len, NUM_CORES, events, **params)
 
 export_path = os.path.join(export_dir, "most_pts_stitched")
 lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations[0], events, export_path+".png")
