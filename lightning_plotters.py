@@ -110,7 +110,7 @@ def plot_avg_power_map(
       str: The output filename where the heatmap image is saved.
     """
 
-    if len(strike_indices) > 0:
+    if len(strike_indices) == 0:
         return None, None
 
     strike_events = events.iloc[strike_indices]
@@ -250,7 +250,6 @@ def generate_strike_gif(
     _range = [[lat_min, lat_max], [lon_min, lon_max]]
     # Use binned_statistic_2d to compute mean power in each lat/lon bin.
 
-
     _, max_stat = plot_avg_power_map(
             sorted_indices,
             events,
@@ -263,6 +262,7 @@ def generate_strike_gif(
         )
     
     if max_stat == None: # If no data is returned
+        print("Returning???")
         return
 
     frames = []
