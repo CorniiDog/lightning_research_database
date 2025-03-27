@@ -117,11 +117,11 @@ print("Headers:", database_parser.get_headers(DB_PATH))
 ####################################################################################
 
 start_time = datetime.datetime(
-    2022, 7, 13, 0, 0, tzinfo=datetime.timezone.utc
+    2022, 7, 12, 0, 0, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 
 end_time = datetime.datetime(
-    2022, 7, 13, 23, 0, tzinfo=datetime.timezone.utc
+    2022, 7, 12, 23, 0, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 
 # Build filter list for time_unix boundaries.
@@ -151,7 +151,7 @@ print(events)
 # Additional parameters that determines "What points make up a single lightning strike"
 # They are explicitly defined
 params = {
-    "max_lightning_dist": 15000,  # max distance between two points to determine it being involved in the same strike
+    "max_lightning_dist": 1000,  # max distance between two points to determine it being involved in the same strike
     "max_lightning_speed": 299792.458,  # max speed between two points in m/s (essentially dx/dt)
     "min_lightning_speed": 0,  # min speed between two points in m/s (essentially dx/dt)
     "min_lightning_points": 300,  # The minimum number of points to pass the system as a "lightning strike"
