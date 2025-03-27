@@ -81,8 +81,8 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
             max_time_threshold_squared = max_time_threshold ** 2
 
             # Apply filtering mask using squared comparisons.
-            # (dt_squared <= max_time_threshold_squared) & \
-            mask = (dt_squared <= max_time_threshold_squared) & (distances_squared <= max_dist_squared) & (speeds_squared <= max_speed_squared) & (speeds_squared >= min_speed_squared)
+            # (dt_squared <= max_time_threshold_squared) & 
+            mask = (distances_squared <= max_dist_squared) & (speeds_squared <= max_speed_squared) & (speeds_squared >= min_speed_squared)
 
             # mask = (dt <= max_time_threshold) & (distances <= max_dist_between_pts) & (speeds <= max_speed) & (speeds >= min_speed)
 

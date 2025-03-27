@@ -1,7 +1,6 @@
 # Run in background: python main.py > output.log 2>&1 & disown
 # List all files in directory './' and sizes: du -h --max-depth=1 ./ | sort -hr
 
-
 import os
 import database_parser
 import lightning_bucketer

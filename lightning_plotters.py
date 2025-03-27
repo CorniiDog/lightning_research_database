@@ -111,7 +111,7 @@ def plot_avg_power_map(
     """
 
     if len(strike_indices) > 0:
-        return None
+        return None, None
 
     strike_events = events.iloc[strike_indices]
 
@@ -261,6 +261,9 @@ def generate_strike_gif(
             _range=_range,
             transparency_threshold=transparency_threshold
         )
+    
+    if max_stat == None: # If no data is returned
+        return
 
     frames = []
     # Generate frames based on time intervals.
