@@ -36,6 +36,12 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
     # Create a Series DataFrame for only the selected strikes.
     strike_series_df: pd.Series = events.iloc[strike_indeces]
 
+    # Cache the cupy arrays for the data columns.
+    all_x = cp.array(strike_series_df["x"].values)
+    all_y = cp.array(strike_series_df["y"].values)
+    all_z = cp.array(strike_series_df["z"].values)
+    all_times = cp.array(strike_series_df["time_unix"].values)
+
     # List to store nodes corresponding to each strike.
     parsed_indices: list[int] = []
     correlations: list[Tuple[(int, int)]] = []
@@ -45,40 +51,45 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
 
         if len(parsed_indices) > 0:
             # Get the current strike's coordinates and time.
-            data_row = strike_series_df.iloc[i]
-            x1, y1, z1 = data_row["x"], data_row["y"], data_row["z"]
-            current_time = data_row["time_unix"]
-            
-            # Retrieve all preceding strike events.
-            preceding_rows = strike_series_df.iloc[:i]
+            x1, y1, z1 = all_x[i], all_y[i], all_z[i]
+            current_time = all_times[i]
 
-            x_pre = cp.array(preceding_rows["x"].values)
-            y_pre = cp.array(preceding_rows["y"].values)
-            z_pre = cp.array(preceding_rows["z"].values)
-            times_pre = cp.array(preceding_rows["time_unix"].values)
+            x_pre = all_x[:i]
+            y_pre = all_y[:i]
+            z_pre = all_z[:i]
+            times_pre = all_times[i]
             current_coords = cp.array([x1, y1, z1])
 
-            # Compute Euclidean distances between the current strike and each candidate.
-            distances = cp.sqrt((x_pre - current_coords[0])**2 +
+            # Compute squared Euclidean distances.
+            distances_squared = ((x_pre - current_coords[0])**2 +
                                 (y_pre - current_coords[1])**2 +
                                 (z_pre - current_coords[2])**2)
+
             # Compute time differences (seconds).
-            dt = current_time - times_pre  # cupy array of time differences.
-            dt = cp.where(dt == 0, 1e-6, dt)
+            dt = current_time - times_pre
+            dt = cp.where(dt == 0, 1e-6, dt)  # Avoid divide-by-zero
 
-            # Compute speeds (m/s).
-            speeds = distances / dt
+            # Compute squared speeds (m²/s²).
+            speeds_squared = distances_squared / (dt ** 2)
 
-            # Create a mask for candidates that satisfy all filtering thresholds.
+            # Precompute squared thresholds.
+            max_dist_squared = max_dist_between_pts ** 2
+            max_speed_squared = max_speed ** 2
+            min_speed_squared = min_speed ** 2
+
+            # Apply filtering mask using squared comparisons.
+            mask = (distances_squared <= max_dist_squared) & \
+                (speeds_squared <= max_speed_squared) & \
+                (speeds_squared >= min_speed_squared)
+
             # mask = (dt <= max_time_threshold) & (distances <= max_dist_between_pts) & (speeds <= max_speed) & (speeds >= min_speed)
-            mask = (distances <= max_dist_between_pts) & (speeds <= max_speed) & (speeds >= min_speed)
-            
+
             valid_indices = cp.where(mask)[0]
 
             if valid_indices.size > 0:
                 # Select the candidate with the minimum distance among those valid.
-                valid_distances = distances[valid_indices]
-                min_valid_idx = int(cp.argmin(valid_distances).get())
+                valid_distances_squared = distances_squared[valid_indices]
+                min_valid_idx = int(cp.argmin(valid_distances_squared).get())
                 candidate_idx = int(valid_indices[min_valid_idx].get())
                 parent_indice = parsed_indices[candidate_idx]
 

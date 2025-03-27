@@ -78,7 +78,7 @@ def _bucket_dataframe_lightnings(
 
     lightning_strikes = []
 
-    for group in tqdm(unique_groups, total=len(unique_groups)):
+    for group in tqdm(unique_groups, total=total_unique_groups):
         group_indices = np.where(group_ids == group)[0]
 
         # Skip groups with fewer points than required.
@@ -124,12 +124,14 @@ def _bucket_dataframe_lightnings(
                 max_dist_between_pts_squared =  (max_dist_between_pts ** 2)
                 mask = (distances_squared <= max_dist_between_pts_squared)
                 if cp.any(mask):
-                    distances = cp.sqrt(distances_squared)
                     # Check speed constraints only for points within spatial threshold.
                     dt = cp.abs(event_unix - sg["unix"])
                     dt = cp.where(dt == 0, 1e-6, dt)
-                    speeds = distances / dt
-                    if cp.any((speeds >= min_speed) & (speeds <= max_speed)):
+                    speeds_squared = distances_squared / (dt ** 2)
+                    
+                    min_speed_squared = (min_speed ** 2)
+                    max_speed_squared = (max_speed ** 2)
+                    if cp.any((speeds_squared >= min_speed_squared) & (speeds_squared <= max_speed_squared)):
                         # Ensure adding the event doesn't violate max_lightning_duration.
                         if event_unix - sg["unix"][0] <= max_lightning_duration:
                             sg["indices"].append(j)
