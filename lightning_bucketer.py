@@ -16,7 +16,8 @@ import os
 import hashlib
 import re
 import datetime
-import toolbox
+from tqdm import tqdm
+
 
 def _bucket_dataframe_lightnings(
     df: pd.DataFrame,
@@ -77,17 +78,12 @@ def _bucket_dataframe_lightnings(
 
     lightning_strikes = []
 
-    for i, group in enumerate(unique_groups):
+    for group in tqdm(unique_groups, total=len(unique_groups)):
         group_indices = np.where(group_ids == group)[0]
 
         # Skip groups with fewer points than required.
         if len(group_indices) < min_pts:
             continue
-        
-        pct = 100 * (i + 1) / total_unique_groups
-        print(
-            f"Progress: {pct:.2f}% ({i+1}/{total_unique_groups}). Currently processing {len(group_indices)} points."
-        )
 
         group_df = df.iloc[group_indices]
 

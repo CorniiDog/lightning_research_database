@@ -214,7 +214,7 @@ for i, strike in enumerate(bucketed_strikes_indices_sorted_by_len):
 print("Created buckets of nodes that resemble a lightning strike")
 
 print("Stitching lightning strikes")
-bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted_by_len, NUM_CORES, events, **params)
+bucketed_lightning_correlations = lightning_stitcher.stitch_lightning_strikes(bucketed_strikes_indices_sorted_by_len, events, **params)
 
 print("Finished generating stitchings of the lightning strike")
 

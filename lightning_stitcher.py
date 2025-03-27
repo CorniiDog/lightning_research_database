@@ -109,27 +109,23 @@ def _stitch_lightning_strikes(args):
     return result
 
 
-def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], NUM_CORES: int, events: pd.DataFrame, **params) -> list[list[Tuple[int, int]]]:
+def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: pd.DataFrame, **params) -> list[list[Tuple[int, int]]]:
     """
-    Processes multiple groups (buckets) of lightning strike indices, stitching each group individually in parallel.
+    Processes multiple groups of lightning strike indices sequentially with a progress bar.
     
     Parameters:
       bucketed_strike_indices (list[list[int]]): A list where each element is a list of strike indices representing a group.
-      NUM_CORES (int): Number of cores/processes to use for parallel processing.
       events (pd.DataFrame): DataFrame containing event data.
       **params: Additional parameters passed to stitch_lightning_strike.
     
     Returns:
-      List of correlations (list[list[Tuple[int, int]]]): A list containing correlations for each group.
+      A list containing correlations for each group.
     """
+    results = []
+    for strike_indices in tqdm(bucketed_strike_indices, total=len(bucketed_strike_indices)):
+        result = stitch_lightning_strike(strike_indices, events, **params)
+        results.append(result)
 
-    # Prepare arguments for each worker.
-    args_list = [(strike_indices, events, params) for strike_indices in bucketed_strike_indices]
-    
-    # Process the groups in parallel.
-    with multiprocessing.Pool(processes=NUM_CORES) as pool:
-        results = list(tqdm(pool.imap(_stitch_lightning_strikes, args_list), total=len(args_list)))
-    
     return results
 
 
