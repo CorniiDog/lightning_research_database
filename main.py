@@ -250,8 +250,6 @@ largest_strike = bucketed_strikes_indices_sorted_by_len[0]
 export_path = os.path.join(export_dir, "most_pts")
 lightning_plotters.plot_avg_power_map(largest_strike, events, output_filename=export_path+".png", transparency_threshold=-1)
 lightning_plotters.generate_strike_gif(largest_strike, events, output_filename=export_path+".gif", transparency_threshold=-1)
-lightning_plotters.create_interactive_html(export_path+".gif", export_path+".html")
-
 
 print("Exporting largest stitched instance")
 

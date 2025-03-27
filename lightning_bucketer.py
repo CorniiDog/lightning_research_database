@@ -16,6 +16,7 @@ import os
 import hashlib
 import re
 import datetime
+import toolbox
 
 def _bucket_dataframe_lightnings(
     df: pd.DataFrame,
@@ -108,11 +109,11 @@ def _bucket_dataframe_lightnings(
             new_sub_groups = []
             for sg in sub_groups:
                 # Check if current event time exceeds the allowed duration from subgroup's first event.
-                if event_unix - sg["unix"][0] > max_lightning_duration:
+                delta = event_unix - sg["unix"][0]
+                if delta > max_lightning_duration:
                     # Finalize subgroup if it meets the minimum points requirement.
                     if len(sg["indices"]) >= min_pts:
-                        final_subgroup = [group_indices[idx] for idx in sg["indices"]]
-                        lightning_strikes.append(final_subgroup)
+                        lightning_strikes.append([group_indices[idx] for idx in sg["indices"]])
                     # Do not retain this subgroup.
                 else:
                     new_sub_groups.append(sg)
@@ -121,11 +122,13 @@ def _bucket_dataframe_lightnings(
             found = False
             # Attempt to add the event to an existing subgroup.
             for sg in sub_groups:
-                # Check spatial proximity.
-                distances = cp.sqrt(
-                    (event_x - sg["x"]) ** 2 + (event_y - sg["y"]) ** 2 + (event_z - sg["z"]) ** 2
-                )
-                if cp.any(distances <= max_dist_between_pts):
+                # Avoid square rooting  to improve the calculations
+                distances_squared = ((event_x - sg["x"]) ** 2 + (event_y - sg["y"]) ** 2 + (event_z - sg["z"]) ** 2)
+
+                max_dist_between_pts_squared =  (max_dist_between_pts ** 2)
+                mask = (distances_squared <= max_dist_between_pts_squared)
+                if cp.any(mask):
+                    distances = cp.sqrt(distances_squared)
                     # Check speed constraints only for points within spatial threshold.
                     dt = cp.abs(event_unix - sg["unix"])
                     dt = cp.where(dt == 0, 1e-6, dt)
