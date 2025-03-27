@@ -82,9 +82,7 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
 
             # Apply filtering mask using squared comparisons.
             # (dt_squared <= max_time_threshold_squared) & \
-            mask = (distances_squared <= max_dist_squared) & \
-                (speeds_squared <= max_speed_squared) & \
-                (speeds_squared >= min_speed_squared)
+            mask = (dt_squared <= max_time_threshold_squared) & (distances_squared <= max_dist_squared) & (speeds_squared <= max_speed_squared) & (speeds_squared >= min_speed_squared)
 
             # mask = (dt <= max_time_threshold) & (distances <= max_dist_between_pts) & (speeds <= max_speed) & (speeds >= min_speed)
 
@@ -120,8 +118,7 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
     results = []
     for strike_indices in tqdm(bucketed_strike_indices, total=len(bucketed_strike_indices)):
         result = stitch_lightning_strike(strike_indices, events, **params)
-        if len(result) > 0:
-            results.append(result)
+        results.append(result)
 
     return results
 

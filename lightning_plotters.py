@@ -110,6 +110,9 @@ def plot_avg_power_map(
       str: The output filename where the heatmap image is saved.
     """
 
+    if len(strike_indices) > 0:
+        return None
+
     strike_events = events.iloc[strike_indices]
 
     # Get the strike's start time from the first event.
@@ -386,6 +389,11 @@ def plot_lightning_stitch(
     Returns:
       go.Figure: The Plotly figure containing the lightning stitch plot.
     """
+
+    # Skip if no data
+    if len(lightning_correlations) == 0:
+        return
+
     # Get the start time from the last correlation's child event.
     start_time_unix = events.loc[lightning_correlations[-1][1]]["time_unix"]
     start_time_dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
@@ -583,6 +591,9 @@ def _plot_strike_stitchings(args):
       None.
     """
     lightning_correlations, events, output_dir, as_gif = args
+
+    if len(lightning_correlations) == 0:
+        return
 
     # Use the last correlation's child event time for filename generation.
     start_time_unix = events.loc[lightning_correlations[-1][1]]["time_unix"]

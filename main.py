@@ -1,4 +1,6 @@
 # Run in background: python main.py > output.log 2>&1 & disown
+# List all files in directory './' and sizes: du -h --max-depth=1 ./ | sort -hr
+
 
 import os
 import database_parser
@@ -151,10 +153,10 @@ print(events)
 # Additional parameters that determines "What points make up a single lightning strike"
 # They are explicitly defined
 params = {
-    "max_lightning_dist": 10000,  # max distance between two points to determine it being involved in the same strike
+    "max_lightning_dist": 5000,  # max distance between two points to determine it being involved in the same strike
     "max_lightning_speed": 299792.458,  # max speed between two points in m/s (essentially dx/dt)
     "min_lightning_speed": 0,  # min speed between two points in m/s (essentially dx/dt)
-    "min_lightning_points": 400,  # The minimum number of points to pass the system as a "lightning strike"
+    "min_lightning_points": 500,  # The minimum number of points to pass the system as a "lightning strike"
     "max_lightning_time_threshold": 0.08,  # max number of seconds between points 
     "max_lightning_duration": 20, # max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
 }
