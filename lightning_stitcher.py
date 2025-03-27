@@ -70,8 +70,9 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
             speeds = distances / dt
 
             # Create a mask for candidates that satisfy all filtering thresholds.
-            mask = (dt <= max_time_threshold) & (distances <= max_dist_between_pts) & \
-                   (speeds <= max_speed) & (speeds >= min_speed)
+            # mask = (dt <= max_time_threshold) & (distances <= max_dist_between_pts) & (speeds <= max_speed) & (speeds >= min_speed)
+            mask = (distances <= max_dist_between_pts) & (speeds <= max_speed) & (speeds >= min_speed)
+            
             valid_indices = cp.where(mask)[0]
 
             if valid_indices.size > 0:
