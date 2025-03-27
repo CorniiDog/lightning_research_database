@@ -55,7 +55,7 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
             x_pre = all_x[:i]
             y_pre = all_y[:i]
             z_pre = all_z[:i]
-            times_pre = all_times[i]
+            times_pre = all_times[:i]
             current_coords = cp.array([x1, y1, z1])
 
             # Compute squared Euclidean distances.
@@ -81,8 +81,8 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
             max_time_threshold_squared = max_time_threshold ** 2
 
             # Apply filtering mask using squared comparisons.
-            mask = (dt_squared <= max_time_threshold_squared) & \
-                (distances_squared <= max_dist_squared) & \
+            # (dt_squared <= max_time_threshold_squared) & \
+            mask = (distances_squared <= max_dist_squared) & \
                 (speeds_squared <= max_speed_squared) & \
                 (speeds_squared >= min_speed_squared)
 
