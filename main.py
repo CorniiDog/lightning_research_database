@@ -1,6 +1,8 @@
 # Run in background: python main.py > output.log 2>&1 & disown
 # List all files in directory './' and sizes: du -h --max-depth=1 ./ | sort -hr
 
+# GOES 3D data stitching
+
 import os
 import database_parser
 import lightning_bucketer
@@ -122,11 +124,11 @@ process_start_time = time.time()
 ####################################################################################
 
 start_time = datetime.datetime(
-    2020, 4, 29, 0, 0, tzinfo=datetime.timezone.utc
+    2020, 4, 29, 14, 30, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 
 end_time = datetime.datetime(
-    2020, 4, 29, 23, 0, tzinfo=datetime.timezone.utc
+    2020, 4, 29, 14, 40, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 
 # Build filter list for time_unix boundaries.
@@ -172,7 +174,7 @@ params = {
     "intercepting_times_extension_buffer": 1, # Number of seconds of additional overlap to allow an additional strike to be involved
     "intercepting_times_extension_max_distance": 150000 # The max distance between the start point of one lightning strike and at least one from the entirety of another lightning strike's points
 }
- 
+
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
 lightning_bucketer.RESULT_CACHE_FILE = os.path.join(cache_dir, "result_cache.pkl")
 lightning_bucketer.NUM_CORES = NUM_CORES # Set number of CPU cores for faster processing

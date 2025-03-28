@@ -46,6 +46,10 @@ def plot_strikes_over_time(
         dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
         plot_data.append({"Time": dt, "Strike Points": len(strike)})
 
+    print("No Data Found for Plotting")
+    if len(plot_data) == 0:
+        return None
+
     df_plot = pd.DataFrame(plot_data)
     # Sort the DataFrame by time.
     df_plot.sort_values(by="Time", inplace=True)
