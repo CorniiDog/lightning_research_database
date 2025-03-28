@@ -188,7 +188,8 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
                     for corr_start_idx, corr_end_idx in temp_correlations:
                         unique_idx_list.add(corr_start_idx)
                         unique_idx_list.add(corr_end_idx)
-
+                    unique_idx_list = list(unique_idx_list)
+                    
                     other_strike_data = events.iloc[unique_idx_list]
 
                     x_vals = other_strike_data["x"].values
