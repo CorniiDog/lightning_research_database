@@ -124,11 +124,11 @@ process_start_time = time.time()
 ####################################################################################
 
 start_time = datetime.datetime(
-    2020, 4, 29, 14, 30, tzinfo=datetime.timezone.utc
+    2020, 4, 29, 0, 0, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 
 end_time = datetime.datetime(
-    2020, 4, 29, 14, 40, tzinfo=datetime.timezone.utc
+    2020, 4, 29, 23, 59, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 
 # Build filter list for time_unix boundaries.

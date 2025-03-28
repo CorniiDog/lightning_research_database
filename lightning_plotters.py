@@ -521,7 +521,7 @@ def plot_lightning_stitch(
         y=points_y,
         mode="markers",
         marker=dict(
-            size=3,
+            size=2,
             color=point_powers,
             colorscale='Agsunset', 
             colorbar=dict(title="Power (dBW)", x=1.15)  # Adjust x to position second colorbar

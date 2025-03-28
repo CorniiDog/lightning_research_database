@@ -200,7 +200,9 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
                     distances_squared = (x_vals - x1) ** 2 + (y_vals - y1) ** 2 + (z_vals - z1) ** 2
 
                     mask = (distances_squared <= intercepting_times_extension_max_distance_squared)
-                    if np.any(mask):                        
+                    if np.any(mask):     
+
+                                           
 
                         result_found = True
                         temp_correlations += sorted_correlations
