@@ -535,7 +535,7 @@ def plot_lightning_stitch(
         x=points_between[x_dim],
         y=points_between[y_dim],
         mode="markers",
-        marker=dict(size=6, color="black"),
+        marker=dict(size=2, color="black"),
         opacity= 0.5,
         showlegend=False,
         hoverinfo="skip"
