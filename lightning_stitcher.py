@@ -5,6 +5,35 @@ from collections import deque
 from typing import Tuple
 from tqdm import tqdm
 
+def filter_correlations_by_chain_size(correlations, min_pts):
+    # Build an undirected graph from the correlations.
+    graph = {}
+    for parent, child in correlations:
+        graph.setdefault(parent, set()).add(child)
+        graph.setdefault(child, set()).add(parent)
+    
+    visited = set()
+    valid_nodes = set()
+    
+    # Use DFS to find connected components.
+    for node in graph:
+        if node not in visited:
+            stack = [node]
+            component = set()
+            while stack:
+                current = stack.pop()
+                if current not in component:
+                    component.add(current)
+                    stack.extend(graph.get(current, []))
+            visited |= component
+            if len(component) >= min_pts:
+                valid_nodes |= component
+    
+    # Filter correlations: both parent and child must be in a valid chain.
+    return [(p, c) for (p, c) in correlations if p in valid_nodes and c in valid_nodes]
+
+
+
 def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **params) -> list[Tuple[(int, int)]]:
     """
     Builds a chain of lightning strike nodes by connecting each strike to the closest preceding strike,
@@ -27,6 +56,7 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
     max_dist_between_pts = params.get("max_lightning_dist", 50000)
     max_speed = params.get("max_lightning_speed", 299792.458)
     min_speed = params.get("min_lightning_speed", 0)
+    min_pts=params.get("min_lightning_points", 300)
 
 
     # Sort the strike indices chronologically (using "time_unix").
@@ -101,8 +131,10 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
         # Save the current node.
         parsed_indices.append(current_indice)
 
+    # Filter out correlations that are not connected to a lightning strike that contains min_pts pts
+    correlations_filtered = filter_correlations_by_chain_size(correlations, min_pts)
 
-    return correlations
+    return correlations_filtered
 
 def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: pd.DataFrame, **params) -> list[list[Tuple[int, int]]]:
     """

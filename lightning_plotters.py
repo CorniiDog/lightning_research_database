@@ -448,9 +448,12 @@ def plot_lightning_stitch(
 
     # Create individual line traces for each correlation segment.
     line_traces = []
+    unique_indices = set()
     for i, (parent_idx, child_idx) in enumerate(lightning_correlations):
         parent_row = events.loc[parent_idx]
         child_row = events.loc[child_idx]
+        unique_indices.add(parent_idx)
+        unique_indices.add(child_idx)
         # Calculate seconds after the earliest event.
         seconds_after = np.average([parent_row["time_unix"], child_row["time_unix"]]) - unix_offset
         # Compute interpolation factor t (0 = earliest, 1 = latest).
@@ -481,12 +484,6 @@ def plot_lightning_stitch(
         showlegend=False,
         hoverinfo="none"
     )
-
-    # Gather unique indices for lightning strikes.
-    unique_indices = set()
-    for parent_idx, child_idx in lightning_correlations:
-        unique_indices.add(parent_idx)
-        unique_indices.add(child_idx)
 
     # Extract coordinates for the strike points.
     points_x = []
