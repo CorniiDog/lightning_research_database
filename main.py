@@ -44,9 +44,6 @@ the file.
 """
 ####################################################################################
 
-# Mark process tart time
-process_start_time = time.time()
-
 # For certain situations, the program may use multiple CPU's to speed up the processing.
 # You can designate a percentage, or explicitly define in num_cores
 CPU_PCT = 0.9  # Percentage of CPU's to use for multiprocessing when necessary
@@ -109,6 +106,9 @@ print("Headers:", database_parser.get_headers(DB_PATH))
 # 'x'            -> float   Meters (ECEF X-coordinate in WGS84)
 # 'y'            -> float   Meters (ECEF Y-coordinate in WGS84)
 # 'z'            -> float   Meters (ECEF Z-coordinate in WGS84)
+
+# Mark process start time
+process_start_time = time.time()
 
 ####################################################################################
  #
@@ -244,6 +244,23 @@ export_path = os.path.join(export_dir, "most_pts_stitched")
 bucketed_lightning_correlations_largest = max(bucketed_lightning_correlations, key=len)
 lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations_largest, events, export_path+".png")
 lightning_plotters.plot_lightning_stitch_gif(bucketed_lightning_correlations_largest, events, output_filename=export_path+".gif")
+
+# Exporting entirely
+print("Exporting all strikes")
+export_path = os.path.join(export_dir, "all_pts")
+bucketed_strikes_indices_combined = [index for strike in bucketed_strikes_indices for index in strike]
+lightning_plotters.plot_avg_power_map(bucketed_strikes_indices_combined, events, output_filename=export_path+".png", transparency_threshold=-1)
+lightning_plotters.generate_strike_gif(bucketed_strikes_indices_combined, events, output_filename=export_path+".gif", transparency_threshold=-1)
+
+print("Number of points within timeframe:", len(bucketed_strikes_indices_combined))
+
+
+# Commented out: Not really that optimized to use yet
+# print("Exporting all stitched instances")
+# export_path = os.path.join(export_dir, "all_pts_stitched")
+# bucketed_lightning_correlations_combined = [index for strike in bucketed_lightning_correlations for index in strike] 
+# lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations_combined, events, export_path+".png")
+# lightning_plotters.plot_lightning_stitch_gif(bucketed_lightning_correlations_combined, events, output_filename=export_path+".gif")
 
 strike_dir = "strikes"
 

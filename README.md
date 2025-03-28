@@ -12,7 +12,7 @@ Assuming the following specs (tested on a laptop with Ubuntu 22.04):
  - Intel i7-10750H (6 Cores -> 12 Threads)
  - Python 3.12.3 (Regular version/Not conda)
 
-One million datapoints should take roughly 7 minutes. Running the same exact parameters again would take 5-10 seconds due to caching into "result_cache.pkl".
+Three million datapoints should take roughly 4 minutes to process (excluding generating plots). Running the same exact parameters again would take 18-20 seconds due to caching.
 
 ## Start
 
