@@ -46,8 +46,8 @@ def plot_strikes_over_time(
         dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
         plot_data.append({"Time": dt, "Strike Points": len(strike)})
 
-    print("No Data Found for Plotting")
     if len(plot_data) == 0:
+        print("No Data Found for Plotting")
         return None
 
     df_plot = pd.DataFrame(plot_data)
@@ -95,7 +95,8 @@ def plot_avg_power_map(
     output_filename: str = "strike_avg_power_map.png",
     _export_fig=True,
     _range=None,
-    _bar_range=None
+    _bar_range=None,
+    _use_start_time=True
 ):
     """
     Generate a heatmap of average power (in dBW) over latitude/longitude for a specified lightning strike.
@@ -122,10 +123,13 @@ def plot_avg_power_map(
     strike_events = events.iloc[strike_indices]
 
     # Get the strike's start time from the first event.
-    start_time_unix = strike_events.iloc[-1]["time_unix"]
-    start_time_dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
-    frac = int(start_time_dt.microsecond / 10000)  # Convert microseconds to hundredths (0-99)
-    start_time_dt = start_time_dt.strftime(f"%Y-%m-%d %H:%M:%S.{frac:02d} UTC")
+    if _use_start_time:
+        title_unix = strike_events.iloc[0]["time_unix"]
+    else:
+        title_unix = strike_events.iloc[-1]["time_unix"]
+    title_dt = datetime.datetime.fromtimestamp(title_unix, tz=datetime.timezone.utc)
+    frac = int(title_dt.microsecond / 10000)  # Convert microseconds to hundredths (0-99)
+    title_str = title_dt.strftime(f"%Y-%m-%d %H:%M:%S.{frac:02d} UTC")
 
     # Extract lat, lon, and power for binning.
     lat = strike_events["lat"].values
@@ -186,7 +190,7 @@ def plot_avg_power_map(
     # Build the figure with layout settings.
     fig = go.Figure(data=[heatmap])
     fig.update_layout(
-        title=f"Smoothed (Gaussian) Average Power Heatmap (dBW) ({start_time_dt})",
+        title=f"Smoothed (Gaussian) Average Power Heatmap (dBW) ({title_str})",
         xaxis=dict(title="Longitude", showgrid=True, gridcolor="lightgray"),
         yaxis=dict(title="Latitude", showgrid=True, gridcolor="lightgray"),
         template="plotly_white",
@@ -264,7 +268,8 @@ def generate_strike_gif(
             sigma=sigma,
             _export_fig=False,
             _range=_range,
-            transparency_threshold=transparency_threshold
+            transparency_threshold=transparency_threshold,
+            _use_start_time=False
         )
     
     if max_stat == None: # If no data is returned
@@ -290,6 +295,7 @@ def generate_strike_gif(
             _export_fig=False,
             _range=_range,
             _bar_range=[0, max_stat],
+            _use_start_time=False
         )
         
         # Convert the Plotly figure to an image.
@@ -382,7 +388,8 @@ def plot_lightning_stitch(
     output_filename: str = "strike_stitched_map.png",
     _export_fig: bool = True,
     _dimensions: list[list[str, str], list[str, str]] = (["lon", "Longitude"], ["lat", "Latitude"]),
-    _range=None
+    _range=None,
+    _use_start_time = True
 ) -> go.Figure:
     """
     Plot the stitched lightning correlations on a 2D scatter plot using latitude and longitude.
@@ -406,10 +413,19 @@ def plot_lightning_stitch(
         return
 
     # Get the start time from the last correlation's child event.
-    start_time_unix = events.loc[lightning_correlations[-1][1]]["time_unix"]
-    start_time_dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
-    frac = int(start_time_dt.microsecond / 10000)  # Convert microseconds to hundredths (0-99)
-    start_time_str = start_time_dt.strftime(f"%Y-%m-%d %H:%M:%S.{frac:02d} UTC")
+    start_time_unix = events.loc[lightning_correlations[0][0]]["time_unix"]
+    end_time_unix = events.loc[lightning_correlations[-1][-1]]["time_unix"]
+
+    # Filter the events dataframe for all points between the two timestamps.
+    points_between = events[(events["time_unix"] >= start_time_unix) & (events["time_unix"] <= end_time_unix)]
+
+    if _use_start_time:
+        marker_time_dt = datetime.datetime.fromtimestamp(start_time_unix, tz=datetime.timezone.utc)
+    else:
+        marker_time_dt = datetime.datetime.fromtimestamp(end_time_unix, tz=datetime.timezone.utc)
+
+    frac = int(marker_time_dt.microsecond / 10000)  # Convert microseconds to hundredths (0-99)
+    marker_time_str = marker_time_dt.strftime(f"%Y-%m-%d %H:%M:%S.{frac:02d} UTC")
 
     plot_range = _range
     computed_lat_min, computed_lat_max, computed_lon_min, computed_lon_max = None, None, None, None
@@ -514,6 +530,17 @@ def plot_lightning_stitch(
         showlegend=False
     )
 
+    # Create background trace: plot all points between the two Unix timestamps with marker size 1.
+    background_trace = go.Scatter(
+        x=points_between[x_dim],
+        y=points_between[y_dim],
+        mode="markers",
+        marker=dict(size=6, color="black"),
+        opacity= 0.5,
+        showlegend=False,
+        hoverinfo="skip"
+    )
+
     # Add invisible points to enforce the specified range.
     invisible_trace = go.Scatter(
         x=[plot_range[1][0], plot_range[1][1]],
@@ -525,9 +552,9 @@ def plot_lightning_stitch(
     )
 
     # Combine all traces.
-    fig = go.Figure(data=line_traces + [dummy_trace, points_trace, invisible_trace])
+    fig = go.Figure(data=[background_trace] + line_traces + [dummy_trace, points_trace, invisible_trace])
     fig.update_layout(
-        title=f"Lightning Strike Stitching ({start_time_str})",
+        title=f"Lightning Strike Stitching ({marker_time_str})",
         xaxis=dict(title=f"{x_header}", range=plot_range[1], showgrid=True, gridcolor="lightgray"),
         yaxis=dict(title=f"{y_header}", range=plot_range[0], showgrid=True, gridcolor="lightgray"),
         template="plotly_white",
@@ -605,7 +632,8 @@ def plot_lightning_stitch_gif(
             events, 
             output_filename="temp.png",  # Dummy filename; image export is disabled.
             _export_fig=False,
-            _range=full_range
+            _range=full_range,
+            _use_start_time=False
         )
         
         # Convert the Plotly figure to an image.
@@ -658,7 +686,8 @@ def _plot_strike_stitchings(args):
             lightning_correlations,
             events,
             output_filename=output_filename,
-            _export_fig=True
+            _export_fig=True,
+            _use_start_time=False
         )
     else:
         output_filename = os.path.join(output_dir, f"{safe_start_time}.gif")

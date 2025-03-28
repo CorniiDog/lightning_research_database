@@ -62,6 +62,7 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
     # Sort the strike indices chronologically (using "time_unix").
     strike_indeces: list[int] = sorted(strike_indeces, key=lambda idx: events.loc[idx, "time_unix"])
     
+
     # Create a Series DataFrame for only the selected strikes.
     strike_series_df: pd.Series = events.iloc[strike_indeces]
 
