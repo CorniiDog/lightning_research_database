@@ -161,7 +161,7 @@ params = {
     "max_lightning_time_threshold": 0.08,  # Max number of seconds between points 
     "max_lightning_duration": 20, # Max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
     "combine_strikes_with_intercepting_times": True, # Set to true to ensure that strikes with intercepting times get combined. 
-    "intercepting_times_extension_buffer": 10 # Number of seconds of additional overlap to allow an additional strike to be involved
+    "intercepting_times_extension_buffer": 0.15 # Number of seconds of additional overlap to allow an additional strike to be involved
 }
  
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
@@ -189,6 +189,8 @@ bucketed_strikes_indices, bucketed_lightning_correlations = lightning_bucketer.b
 #   # Process the dataframe however you please of the designated lightning strike
 # ```
 
+process_time = time.time() - process_start_time
+print(f"Process time: {process_time:.2f} seconds.")
 
 # Stop the program if the data is too restrained
 if len(bucketed_strikes_indices) == 0:
@@ -271,6 +273,3 @@ lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, e
 lightning_plotters.plot_all_strike_stitchings(bucketed_lightning_correlations, events, strike_stitchings_dir, NUM_CORES, as_gif=True)
 
 print("Finished generating plots")
-
-process_time = time.time() - process_start_time
-print(f"Process time: {process_time:.2f} seconds.")
