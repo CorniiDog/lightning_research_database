@@ -189,14 +189,14 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
                         unique_idx_list.add(corr_start_idx)
                         unique_idx_list.add(corr_end_idx)
                     unique_idx_list = list(unique_idx_list)
-                    
+
                     other_strike_data = events.iloc[unique_idx_list]
 
                     x_vals = other_strike_data["x"].values
                     y_vals = other_strike_data["y"].values
                     z_vals = other_strike_data["z"].values
 
-                    distances_squared = (x_vals - x1) ** 2 + (y_vals - y1) ** 2 (z_vals - z1) ** 2
+                    distances_squared = (x_vals - x1) ** 2 + (y_vals - y1) ** 2 + (z_vals - z1) ** 2
 
                     mask = (distances_squared <= intercepting_times_extension_max_distance_squared)
                     if np.any(mask):                        
