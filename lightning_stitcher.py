@@ -158,6 +158,8 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
 
     combine_strikes_with_intercepting_times = params.get("combine_strikes_with_intercepting_times", True)
     intercepting_times_extension_buffer = params.get("intercepting_times_extension_buffer", 10)
+    intercepting_times_extension_max_distance = params.get("intercepting_times_extension_max_distance", 15000)
+    intercepting_times_extension_max_distance_squared = intercepting_times_extension_max_distance ** 2 # For faster distance equation
 
     if combine_strikes_with_intercepting_times:
         temp_bucketed_correlations = []
@@ -169,17 +171,39 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
 
             sorted_correlations = sorted(correlations, key=lambda corr: events.loc[corr[0], "time_unix"])
 
-            correlations_start_time = events.iloc[sorted_correlations[0][0]]["time_unix"]
+            correlations_start_row = events.iloc[sorted_correlations[0][0]]
+            correlations_start_time = correlations_start_row["time_unix"]
+
+            x1, y1, z1 = correlations_start_row["x"], correlations_start_row["y"], correlations_start_row["z"]
             
             result_found = False
             for i, temp_correlations in enumerate(temp_bucketed_correlations):
+
                 start_time = events.iloc[temp_correlations[0][0]]["time_unix"]
                 end_time = events.iloc[temp_correlations[-1][1]]["time_unix"] + intercepting_times_extension_buffer
+
                 if start_time < correlations_start_time < end_time:
-                    result_found = True
-                    temp_correlations += sorted_correlations
-                    temp_bucketed_correlations[i] = sorted(temp_correlations, key=lambda corr: events.loc[corr[0], "time_unix"])
-                    break
+                    
+                    unique_idx_list = set()
+                    for corr_start_idx, corr_end_idx in temp_correlations:
+                        unique_idx_list.add(corr_start_idx)
+                        unique_idx_list.add(corr_end_idx)
+
+                    other_strike_data = events.iloc[unique_idx_list]
+
+                    x_vals = other_strike_data["x"].values
+                    y_vals = other_strike_data["y"].values
+                    z_vals = other_strike_data["z"].values
+
+                    distances_squared = (x_vals - x1) ** 2 + (y_vals - y1) ** 2 (z_vals - z1) ** 2
+
+                    mask = (distances_squared <= intercepting_times_extension_max_distance_squared)
+                    if np.any(mask):                        
+
+                        result_found = True
+                        temp_correlations += sorted_correlations
+                        temp_bucketed_correlations[i] = sorted(temp_correlations, key=lambda corr: events.loc[corr[0], "time_unix"])
+                        break
             
             if not result_found:
                 temp_bucketed_correlations.append(sorted_correlations)

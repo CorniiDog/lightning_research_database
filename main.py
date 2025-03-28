@@ -160,8 +160,11 @@ params = {
     "min_lightning_points": 300,  # The minimum number of points to pass the system as a "lightning strike"
     "max_lightning_time_threshold": 0.08,  # Max number of seconds between points 
     "max_lightning_duration": 20, # Max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
+
+    # Combining intercepting lightning strike data as one
     "combine_strikes_with_intercepting_times": True, # Set to true to ensure that strikes with intercepting times get combined. 
-    "intercepting_times_extension_buffer": 0.15 # Number of seconds of additional overlap to allow an additional strike to be involved
+    "intercepting_times_extension_buffer": 0.15, # Number of seconds of additional overlap to allow an additional strike to be involved
+    "intercepting_times_extension_max_distance": 150000 # The
 }
  
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
