@@ -247,8 +247,8 @@ if os.path.exists(strike_dir):
 os.makedirs(strike_dir, exist_ok=True)
 
 print("Plotting strikes as a heatmap")
-lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted_by_len, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1)
-lightning_plotters.plot_all_strikes(bucketed_strikes_indices_sorted_by_len, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1)
+lightning_plotters.plot_all_strikes(bucketed_strikes_indices, events, strike_dir, NUM_CORES, sigma=1.5, transparency_threshold=-1)
+lightning_plotters.plot_all_strikes(bucketed_strikes_indices, events, strike_dir, NUM_CORES, as_gif=True, sigma=1.5, transparency_threshold=-1)
 
 print("Plotting all strike stitchings")
 
