@@ -8,11 +8,103 @@ import datetime
 from tqdm import tqdm
 import lightning_stitcher
 from typing import List, Tuple, Optional
+import multiprocessing
 
 # Global constants for cache handling.
 RESULT_CACHE_FILE: str = "result_cache.pkl"
 USE_CACHE: bool = True
 
+
+def _group_process(args_list):
+
+    df, unique_groups, min_pts, group_ids, max_lightning_duration, max_dist_between_pts, min_speed, max_speed = args_list
+
+    lightning_strikes: List[List[int]] = []
+    for group in unique_groups:
+            group_indices = np.where(group_ids == group)[0]
+
+            # Skip groups with fewer points than required.
+            if len(group_indices) < min_pts:
+                continue
+
+            group_df = df.iloc[group_indices]
+
+            x_vals = group_df["x"].values
+            y_vals = group_df["y"].values
+            z_vals = group_df["z"].values
+            unix_vals = group_df["time_unix"].values
+
+            # Initialize list to hold subgroups (potential lightning strikes) for this time group.
+            sub_groups = []
+
+            for j in range(len(x_vals)):
+                event_x = x_vals[j]
+                event_y = y_vals[j]
+                event_z = z_vals[j]
+                event_unix = unix_vals[j]
+
+                # Finalize subgroups that have exceeded max_lightning_duration.
+                new_sub_groups = []
+                for sg in sub_groups:
+                    time_delta = event_unix - sg["unix"][0]
+                    if time_delta > max_lightning_duration:
+                        if len(sg["indices"]) >= min_pts:
+                            lightning_strikes.append([group_indices[idx] for idx in sg["indices"]])
+                        # Do not retain this subgroup.
+                    else:
+                        new_sub_groups.append(sg)
+                sub_groups = new_sub_groups
+
+                found = False
+                # Attempt to add the event to an existing subgroup.
+                for sg in sub_groups:
+                    distances_squared = (
+                        (event_x - sg["x"]) ** 2 +
+                        (event_y - sg["y"]) ** 2 +
+                        (event_z - sg["z"]) ** 2
+                    )
+                    max_dist_squared = max_dist_between_pts ** 2
+                    mask1 = distances_squared <= max_dist_squared
+                    if np.any(mask1):
+                        # Check speed constraints for points within spatial threshold.
+                        dt = np.abs(event_unix - sg["unix"])
+                        dt = np.where(dt == 0, 1e-6, dt)
+                        speeds_squared = distances_squared / (dt ** 2)
+                        
+                        min_speed_squared = min_speed ** 2
+                        max_speed_squared = max_speed ** 2
+
+                        mask2 = (speeds_squared >= min_speed_squared) & (speeds_squared <= max_speed_squared)
+                        if np.any(mask2):
+                            if event_unix - sg["unix"][0] <= max_lightning_duration:
+                                sg["indices"].append(j)
+                                sg["x"] = np.concatenate([sg["x"], np.array([event_x])])
+                                sg["y"] = np.concatenate([sg["y"], np.array([event_y])])
+                                sg["z"] = np.concatenate([sg["z"], np.array([event_z])])
+                                sg["unix"] = np.concatenate([sg["unix"], np.array([event_unix])])
+                                found = True
+                                break
+
+                # If event did not fit in any subgroup, start a new subgroup.
+                if not found:
+                    sub_groups.append({
+                        "indices": [j],
+                        "x": np.array([event_x]),
+                        "y": np.array([event_y]),
+                        "z": np.array([event_z]),
+                        "unix": np.array([event_unix]),
+                    })
+
+            # Finalize remaining subgroups.
+            for sg in sub_groups:
+                if len(sg["indices"]) >= min_pts:
+                    final_subgroup = [group_indices[idx] for idx in sg["indices"]]
+                    lightning_strikes.append(final_subgroup)
+    
+    return lightning_strikes
+
+NUM_CORES = 1
+NUM_CHUNKS = 4
 
 def _bucket_dataframe_lightnings(
     df: pd.DataFrame,
@@ -69,90 +161,22 @@ def _bucket_dataframe_lightnings(
 
     group_ids = time_groups
     unique_groups = np.unique(group_ids)
-    total_unique_groups = len(unique_groups)
+
+
+    if len(unique_groups) <= NUM_CHUNKS:
+        chunks = [unique_groups]
+    else:
+        chunks = np.array_split(unique_groups, NUM_CHUNKS)
+
+    args_list = [
+        (df, chunk, min_pts, group_ids, max_lightning_duration, max_dist_between_pts, min_speed, max_speed)
+        for chunk in chunks
+    ]
 
     lightning_strikes: List[List[int]] = []
-
-    for group in tqdm(unique_groups, desc="Bucketing Strikes", total=total_unique_groups):
-        group_indices = np.where(group_ids == group)[0]
-
-        # Skip groups with fewer points than required.
-        if len(group_indices) < min_pts:
-            continue
-
-        group_df = df.iloc[group_indices]
-
-        x_vals = group_df["x"].values
-        y_vals = group_df["y"].values
-        z_vals = group_df["z"].values
-        unix_vals = group_df["time_unix"].values
-
-        # Initialize list to hold subgroups (potential lightning strikes) for this time group.
-        sub_groups = []
-
-        for j in range(len(x_vals)):
-            event_x = x_vals[j]
-            event_y = y_vals[j]
-            event_z = z_vals[j]
-            event_unix = unix_vals[j]
-
-            # Finalize subgroups that have exceeded max_lightning_duration.
-            new_sub_groups = []
-            for sg in sub_groups:
-                time_delta = event_unix - sg["unix"][0]
-                if time_delta > max_lightning_duration:
-                    if len(sg["indices"]) >= min_pts:
-                        lightning_strikes.append([group_indices[idx] for idx in sg["indices"]])
-                    # Do not retain this subgroup.
-                else:
-                    new_sub_groups.append(sg)
-            sub_groups = new_sub_groups
-
-            found = False
-            # Attempt to add the event to an existing subgroup.
-            for sg in sub_groups:
-                distances_squared = (
-                    (event_x - sg["x"]) ** 2 +
-                    (event_y - sg["y"]) ** 2 +
-                    (event_z - sg["z"]) ** 2
-                )
-                max_dist_squared = max_dist_between_pts ** 2
-                mask1 = distances_squared <= max_dist_squared
-                if np.any(mask1):
-                    # Check speed constraints for points within spatial threshold.
-                    dt = np.abs(event_unix - sg["unix"])
-                    dt = np.where(dt == 0, 1e-6, dt)
-                    speeds_squared = distances_squared / (dt ** 2)
-                    
-                    min_speed_squared = min_speed ** 2
-                    max_speed_squared = max_speed ** 2
-
-                    mask2 = (speeds_squared >= min_speed_squared) & (speeds_squared <= max_speed_squared)
-                    if np.any(mask2):
-                        if event_unix - sg["unix"][0] <= max_lightning_duration:
-                            sg["indices"].append(j)
-                            sg["x"] = np.concatenate([sg["x"], np.array([event_x])])
-                            sg["y"] = np.concatenate([sg["y"], np.array([event_y])])
-                            sg["z"] = np.concatenate([sg["z"], np.array([event_z])])
-                            sg["unix"] = np.concatenate([sg["unix"], np.array([event_unix])])
-                            found = True
-                            break
-
-            # If event did not fit in any subgroup, start a new subgroup.
-            if not found:
-                sub_groups.append({
-                    "indices": [j],
-                    "x": np.array([event_x]),
-                    "y": np.array([event_y]),
-                    "z": np.array([event_z]),
-                    "unix": np.array([event_unix]),
-                })
-
-        # Finalize remaining subgroups.
-        for sg in sub_groups:
-            if len(sg["indices"]) >= min_pts:
-                final_subgroup = [group_indices[idx] for idx in sg["indices"]]
-                lightning_strikes.append(final_subgroup)
+    with multiprocessing.Pool(processes=NUM_CORES) as pool:
+        for result in tqdm(pool.imap(_group_process, iterable=args_list), desc="Processing Chunks of Buckets",total=len(args_list)):
+            lightning_strikes += result
 
     print("Passed groups:", len(lightning_strikes))
     return lightning_strikes

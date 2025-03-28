@@ -163,9 +163,11 @@ params = {
     "combine_strikes_with_intercepting_times": True, # Set to true to ensure that strikes with intercepting times get combined. 
     "intercepting_times_extension_buffer": 10 # Number of seconds of additional overlap to allow an additional strike to be involved
 }
-
+ 
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
 lightning_bucketer.RESULT_CACHE_FILE = os.path.join(cache_dir, "result_cache.pkl")
+lightning_bucketer.NUM_CORES = NUM_CORES # Set number of CPU cores for faster processing
+lightning_bucketer.NUM_CHUNKS = NUM_CORES * 4 # Split the thousands of points into n chunks
 # To delete the cache of all of the save data (as it accumulates over time), run:
 # ```
 # lightning_bucketer.delete_result_cache()

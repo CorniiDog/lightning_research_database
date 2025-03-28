@@ -163,7 +163,12 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
         temp_bucketed_correlations = []
         for correlations in tqdm(bucketed_correlations, desc="Grouping Intercepting Lightning Strikes",total=len(bucketed_correlations)):
             
+
+            if len(correlations) == 0:
+                continue
+
             sorted_correlations = sorted(correlations, key=lambda corr: events.loc[corr[0], "time_unix"])
+
             correlations_start_time = events.iloc[sorted_correlations[0][0]]["time_unix"]
             
             result_found = False
