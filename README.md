@@ -2,6 +2,8 @@
 
 ![most_pts](export/most_pts.gif)
 
+![most_pts_stitched](export/most_pts_stitched.gif)
+
 This library extracts LYLOUT data, store it into a lightning database, and processes millions of datapoints in the database to a reasonably fast and optimized speed. This project is meant to be a framework for applications to implement and parse data more appropriately.
 
 Assuming the following specs (tested on a laptop with Ubuntu 22.04):
