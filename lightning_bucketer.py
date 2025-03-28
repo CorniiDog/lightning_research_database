@@ -73,7 +73,7 @@ def _bucket_dataframe_lightnings(
 
     lightning_strikes: List[List[int]] = []
 
-    for group in tqdm(unique_groups, total=total_unique_groups):
+    for group in tqdm(unique_groups, desc="Bucketing Strikes", total=total_unique_groups):
         group_indices = np.where(group_ids == group)[0]
 
         # Skip groups with fewer points than required.
@@ -287,18 +287,16 @@ def bucket_dataframe_lightnings(
 
     bucketed_correlations = lightning_stitcher.stitch_lightning_strikes(raw_groups, df, **params)
 
-    # Gather unique indices from correlations.
-    unique_indices = set()
-    for correlations in bucketed_correlations:
-      for parent_idx, child_idx in correlations:
-          unique_indices.add(parent_idx)
-          unique_indices.add(child_idx)
-
     filtered_groups: List[List[int]] = []
-    for group in raw_groups:
-        filtered_group = [idx for idx in group if idx in unique_indices]
-        if filtered_group and len(filtered_group) > 0:
-            filtered_groups.append(filtered_group)
+
+    # Gather unique indices from correlations.
+    for correlations in bucketed_correlations:
+        unique_indices = set()
+        for parent_idx, child_idx in correlations:
+            unique_indices.add(parent_idx)
+            unique_indices.add(child_idx)
+
+        filtered_groups.append(list(unique_indices))
 
     save_result_cache(df, params, (filtered_groups, bucketed_correlations))
 

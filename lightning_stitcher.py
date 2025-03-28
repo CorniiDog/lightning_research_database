@@ -56,7 +56,7 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
     max_dist_between_pts = params.get("max_lightning_dist", 50000)
     max_speed = params.get("max_lightning_speed", 299792.458)
     min_speed = params.get("min_lightning_speed", 0)
-    min_pts=params.get("min_lightning_points", 300)
+    min_pts = params.get("min_lightning_points", 300)
 
 
     # Sort the strike indices chronologically (using "time_unix").
@@ -136,6 +136,8 @@ def stitch_lightning_strike(strike_indeces: list[int], events: pd.DataFrame, **p
 
     return correlations_filtered
 
+
+
 def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: pd.DataFrame, **params) -> list[list[Tuple[int, int]]]:
     """
     Processes multiple groups of lightning strike indices sequentially with a progress bar.
@@ -148,11 +150,36 @@ def stitch_lightning_strikes(bucketed_strike_indices: list[list[int]], events: p
     Returns:
       A list containing correlations for each group.
     """
-    results = []
-    for strike_indices in tqdm(bucketed_strike_indices, total=len(bucketed_strike_indices)):
-        result = stitch_lightning_strike(strike_indices, events, **params)
-        results.append(result)
 
-    return results
+    bucketed_correlations = []
+    for strike_indices in tqdm(bucketed_strike_indices, desc="Stitching Lightning Strikes",total=len(bucketed_strike_indices)):
+        correlations = stitch_lightning_strike(strike_indices, events, **params)
+        bucketed_correlations.append(correlations)
+
+    combine_strikes_with_intercepting_times = params.get("combine_strikes_with_intercepting_times", True)
+    intercepting_times_extension_buffer = params.get("intercepting_times_extension_buffer", 10)
+
+    if combine_strikes_with_intercepting_times:
+        temp_bucketed_correlations = []
+        for correlations in tqdm(bucketed_correlations, desc="Grouping Intercepting Lightning Strikes",total=len(bucketed_correlations)):
+            
+            sorted_correlations = sorted(correlations, key=lambda corr: events.loc[corr[0], "time_unix"])
+            correlations_start_time = events.iloc[sorted_correlations[0][0]]["time_unix"]
+            
+            result_found = False
+            for i, temp_correlations in enumerate(temp_bucketed_correlations):
+                start_time = events.iloc[temp_correlations[0][0]]["time_unix"]
+                end_time = events.iloc[temp_correlations[-1][1]]["time_unix"] + intercepting_times_extension_buffer
+                if start_time < correlations_start_time < end_time:
+                    result_found = True
+                    temp_correlations += sorted_correlations
+                    temp_bucketed_correlations[i] = sorted(temp_correlations, key=lambda corr: events.loc[corr[0], "time_unix"])
+                    break
+            
+            if not result_found:
+                temp_bucketed_correlations.append(sorted_correlations)
+        bucketed_correlations = temp_bucketed_correlations
+
+    return bucketed_correlations
 
 

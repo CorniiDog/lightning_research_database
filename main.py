@@ -117,11 +117,11 @@ print("Headers:", database_parser.get_headers(DB_PATH))
 ####################################################################################
 
 start_time = datetime.datetime(
-    2022, 7, 12, 0, 0, tzinfo=datetime.timezone.utc
+    2020, 4, 29, 0, 0, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 
 end_time = datetime.datetime(
-    2022, 7, 12, 23, 0, tzinfo=datetime.timezone.utc
+    2020, 4, 29, 23, 0, tzinfo=datetime.timezone.utc
 ).timestamp()  # Timestamp converts to unix (float)
 
 # Build filter list for time_unix boundaries.
@@ -140,7 +140,10 @@ filters = [
 
 # Events is a pandas DataFrame that represents all results determined from the filters above
 events = database_parser.query_events_as_dataframe(filters, DB_PATH)
-print(events)
+print("Events:", events)
+
+if events.empty:
+    print("Data too restrained")
 
 ####################################################################################
  #
@@ -151,12 +154,14 @@ print(events)
 # Additional parameters that determines "What points make up a single lightning strike"
 # They are explicitly defined
 params = {
-    "max_lightning_dist": 5000,  # max distance between two points to determine it being involved in the same strike
-    "max_lightning_speed": 299792.458,  # max speed between two points in m/s (essentially dx/dt)
-    "min_lightning_speed": 0,  # min speed between two points in m/s (essentially dx/dt)
-    "min_lightning_points": 500,  # The minimum number of points to pass the system as a "lightning strike"
-    "max_lightning_time_threshold": 0.08,  # max number of seconds between points 
-    "max_lightning_duration": 20, # max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
+    "max_lightning_dist": 5000,  # Max distance between two points to determine it being involved in the same strike
+    "max_lightning_speed": 299792.458,  # Max speed between two points in m/s (essentially dx/dt)
+    "min_lightning_speed": 0,  # Min speed between two points in m/s (essentially dx/dt)
+    "min_lightning_points": 300,  # The minimum number of points to pass the system as a "lightning strike"
+    "max_lightning_time_threshold": 0.08,  # Max number of seconds between points 
+    "max_lightning_duration": 20, # Max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
+    "combine_strikes_with_intercepting_times": True, # Set to true to ensure that strikes with intercepting times get combined. 
+    "intercepting_times_extension_buffer": 10 # Number of seconds of additional overlap to allow an additional strike to be involved
 }
 
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
