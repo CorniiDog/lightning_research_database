@@ -236,9 +236,6 @@ bucketed_lightning_correlations_largest = max(bucketed_lightning_correlations, k
 lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations_largest, events, export_path+".png")
 lightning_plotters.plot_lightning_stitch_gif(bucketed_lightning_correlations_largest, events, output_filename=export_path+".gif")
 
-
-exit()
-
 strike_dir = "strikes"
 
 # Remove the strikes directory if it exists
