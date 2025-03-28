@@ -7,7 +7,7 @@
 This library extracts LYLOUT data, store it into a lightning database, and processes millions of datapoints in the database to a reasonably fast and optimized speed. This project is meant to be a framework for applications to implement and parse data more appropriately.
 
 Assuming the following specs (tested on a laptop with Ubuntu 22.04):
- - 16 GB DDR4 RAM (Mobile)
+ - 64 GB DDR4 RAM
  - RTX 2060 Mobile (6GB)
  - Intel i7-10750H (6 Cores -> 12 Threads)
  - Python 3.12.3 (Regular version/Not conda)
