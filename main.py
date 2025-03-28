@@ -164,14 +164,14 @@ params = {
 
     # Combining intercepting lightning strike data filtering
     "combine_strikes_with_intercepting_times": True, # Set to true to ensure that strikes with intercepting times get combined. 
-    "intercepting_times_extension_buffer": 0.15, # Number of seconds of additional overlap to allow an additional strike to be involved
-    "intercepting_times_extension_max_distance": 150000 # The max distance between the start point of one lightning strike and the entirety of another lightning strike's points
+    "intercepting_times_extension_buffer": 1, # Number of seconds of additional overlap to allow an additional strike to be involved
+    "intercepting_times_extension_max_distance": 150000 # The max distance between the start point of one lightning strike and at least one from the entirety of another lightning strike's points
 }
  
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
 lightning_bucketer.RESULT_CACHE_FILE = os.path.join(cache_dir, "result_cache.pkl")
 lightning_bucketer.NUM_CORES = NUM_CORES # Set number of CPU cores for faster processing
-lightning_bucketer.NUM_CHUNKS = NUM_CORES * 4 # Split the thousands of points into n chunks
+lightning_bucketer.NUM_CHUNKS = 40 # Combine the (possibly) thousands of buckets into 'n' chunks for multiprocessing
 # To delete the cache of all of the save data (as it accumulates over time), run:
 # ```
 # lightning_bucketer.delete_result_cache()

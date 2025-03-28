@@ -72,8 +72,8 @@ params = {
 
     # Combining intercepting lightning strike data filtering
     "combine_strikes_with_intercepting_times": True, # Set to true to ensure that strikes with intercepting times get combined. 
-    "intercepting_times_extension_buffer": 0.15, # Number of seconds of additional overlap to allow an additional strike to be involved
-    "intercepting_times_extension_max_distance": 150000 # The max distance between the start point of one lightning strike and the entirety of another lightning strike's points
+    "intercepting_times_extension_buffer": 1, # Number of seconds of additional overlap to allow an additional strike to be involved
+    "intercepting_times_extension_max_distance": 150000 # The max distance between the start point of one lightning strike and at least one from the entirety of another lightning strike's points
 }
 
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests

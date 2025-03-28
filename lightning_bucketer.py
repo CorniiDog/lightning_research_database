@@ -164,7 +164,7 @@ def _bucket_dataframe_lightnings(
 
 
     if len(unique_groups) <= NUM_CHUNKS:
-        chunks = [unique_groups]
+        chunks = np.array_split(unique_groups, len(unique_groups))
     else:
         chunks = np.array_split(unique_groups, NUM_CHUNKS)
 
