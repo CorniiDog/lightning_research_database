@@ -60,6 +60,11 @@ lightning_data_folder = "lylout_files"  # Should put all "LYLOUT..." files withi
 data_extension = ".dat"
 os.makedirs(lightning_data_folder, exist_ok=True)  # Ensure that it exists
 
+files = os.listdir(lightning_data_folder)
+if len(files) == 0:
+    print(f"Please put lightning LYLOUT files in the directory '{lightning_data_folder}'")
+    exit()
+
 dat_file_paths = database_parser.get_dat_files_paths(lightning_data_folder, data_extension)
 
 # The SQLite database file

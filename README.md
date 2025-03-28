@@ -1,4 +1,9 @@
-# Connor's Lightning Parser Program
+# Connor's Mapping Array Analyzer (CMAA)
+
+The Connor's Mapping Array Analyzer (CMAA) is an extremely powerful analysis utility with a simplistic front-end in mind.
+The analyzer is capable of processing millions of LYLOUT datapoints in mere minutes by using a SQL database back-end for initial filtering, and then uses optimized work-arounds for computationally expensive methods that omit square-root and trig functions for distances between points. Not to mention it's back-end parses most data with indexes (list[int], list[list[int]], etc.) instead of the entire data itself. Additionally, it uses multi-processing when necessary to accelerate processes.
+
+All of these methods allow extremely fast computation times, given the immense scale and size of the data itself.
 
 ![most_pts](export/most_pts.gif)
 
