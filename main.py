@@ -165,14 +165,14 @@ params = {
     "max_lightning_dist": 30000,  # Max distance between two points to determine it being involved in the same strike
     "max_lightning_speed": 1.4e8,  # Max speed between two points in m/s (essentially dx/dt)
     "min_lightning_speed": 0,  # Min speed between two points in m/s (essentially dx/dt)
-    "min_lightning_points": 100,  # The minimum number of points to pass the system as a "lightning strike"
+    "min_lightning_points": 300,  # The minimum number of points to pass the system as a "lightning strike"
     "max_lightning_time_threshold": 0.3,  # Max number of seconds between points 
     "max_lightning_duration": 40, # Max seconds that define an entire lightning strike. This is essentially a "time window" for all of the points to fill the region that determines a "lightning strike"
 
     # Combining intercepting lightning strike data filtering
     "combine_strikes_with_intercepting_times": True, # Set to true to ensure that strikes with intercepting times get combined. 
     "intercepting_times_extension_buffer": 3, # Number of seconds of additional overlap to allow an additional strike to be involved
-    "intercepting_times_extension_max_distance": 200000 # The max distance between the start point of one lightning strike and at least one from the entirety of another lightning strike's points
+    "intercepting_times_extension_max_distance": 200000, # The max distance between the start point of one lightning strike and at least one from the entirety of another lightning strike's points
 }
 
 lightning_bucketer.USE_CACHE = True  # Generate cache of result to save time for future identical (one-to-one exact) requests
@@ -222,6 +222,13 @@ print("Finished generating stitchings of the lightning strike")
   # Plotting and exporting
  #
 ####################################################################################
+
+# Only export plot data with more than n datapoints
+MAKE_PLOTS_WITH_MORE_PTS_THAN = 1000
+bucketed_strikes_indices = [lst for lst in bucketed_strikes_indices if len(lst) > MAKE_PLOTS_WITH_MORE_PTS_THAN]
+bucketed_lightning_correlations = [lst for lst in bucketed_lightning_correlations if len(lst) > MAKE_PLOTS_WITH_MORE_PTS_THAN]
+#####
+
 print("Exporting CSV data")
 
 csv_dir = "strikes_csv_files"
@@ -271,7 +278,7 @@ print("Number of points within timeframe:", len(bucketed_strikes_indices_combine
 # print("Exporting all stitched instances")
 # export_path = os.path.join(export_dir, "all_pts_stitched")
 # bucketed_lightning_correlations_combined = [index for strike in bucketed_lightning_correlations for index in strike] 
-# lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations_combined, events, export_path+".png")
+# lightning_plotters.plot_lightning_stitch(bucketed_lightning_correlations_combined, events, output_filename=export_path+".png")
 # lightning_plotters.plot_lightning_stitch_gif(bucketed_lightning_correlations_combined, events, output_filename=export_path+".gif")
 
 strike_dir = "strikes"
